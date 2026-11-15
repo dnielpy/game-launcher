@@ -285,14 +285,14 @@ function ManageTab({ game }: { game: Game }) {
       <section className="flex flex-col gap-2">
         <h3 className="text-sm font-semibold">Section</h3>
         <div className="flex gap-2">
-          {(['game', 'tool'] as const).map((category) => (
+          {(['game', 'emulator', 'tool'] as const).map((category) => (
             <button
               key={category}
               type="button"
               onClick={() => game.category !== category && void update({ category })}
               className={`rounded-md px-4 py-2 text-sm ${game.category === category ? 'bg-ink text-canvas' : 'bg-raised text-muted hover:text-ink'}`}
             >
-              {category === 'game' ? 'Game' : 'Tool'}
+              {category === 'game' ? 'Game' : category === 'emulator' ? 'Emulator' : 'Tool'}
             </button>
           ))}
         </div>

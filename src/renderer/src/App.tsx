@@ -5,11 +5,9 @@ import { ScanStatus } from './components/ScanStatus'
 import { Sidebar } from './components/Sidebar'
 import { connectEvents, useLauncher } from './store'
 import { HomeView } from './views/HomeView'
-import { InstallersView } from './views/InstallersView'
 import { LibraryView } from './views/LibraryView'
-import { LocationsView } from './views/LocationsView'
+import { EmulatorsView, ToolsView } from './views/ProgramsView'
 import { SettingsView } from './views/SettingsView'
-import { ToolsView } from './views/ToolsView'
 
 export function App() {
   const { view, error, dismissError, refresh, refreshRoots } = useLauncher()
@@ -41,9 +39,8 @@ export function App() {
         <main className="min-h-0 flex-1 overflow-y-auto px-8 pt-8">
           {view === 'home' && <HomeView />}
           {view === 'library' && <LibraryView />}
+          {view === 'emulators' && <EmulatorsView />}
           {view === 'tools' && <ToolsView />}
-          {view === 'installers' && <InstallersView />}
-          {view === 'locations' && <LocationsView />}
           {view === 'settings' && <SettingsView />}
         </main>
       </div>

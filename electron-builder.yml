@@ -1,5 +1,6 @@
+# The appId stays the same as earlier builds so the installer upgrades the existing install.
 appId: com.dnielpy.gamelauncher
-productName: Game Launcher
+productName: Orus
 directories:
   buildResources: resources
 files:
@@ -8,10 +9,17 @@ files:
 asarUnpack:
   - 'node_modules/better-sqlite3/**'
 win:
+  icon: resources/icon.ico
+  artifactName: 'Orus-Setup-${version}.${ext}'
   target:
     - target: nsis
       arch: [x64]
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
+  shortcutName: Orus
+  uninstallDisplayName: Orus
+  installerIcon: resources/icon.ico
+  uninstallerIcon: resources/icon.ico
 npmRebuild: true
+publish: null

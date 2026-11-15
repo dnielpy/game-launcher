@@ -4,6 +4,7 @@ import { normalizeForComparison } from './nameCleaner'
 interface ToolEntry {
   /** Name shown in the library. */
   name: string
+  kind?: 'tool' | 'emulator'
   /** Tested against the normalized title (lower-case, alphanumeric, single spaces). */
   title: RegExp
   /** Tested against the executable file name without extension, lower-case. */
@@ -11,8 +12,8 @@ interface ToolEntry {
 }
 
 /**
- * Programs that live next to games but are not games: launchers, overlays,
- * emulators, trainers and monitoring tools. They go to the Tools section.
+ * Programs that live next to games but are not games. Emulators go to the
+ * Emulators section; launchers, overlays, trainers and monitoring tools to Tools.
  */
 const TOOLS: ToolEntry[] = [
   // Monitoring and tuning
@@ -47,25 +48,25 @@ const TOOLS: ToolEntry[] = [
   { name: 'Steam ROM Manager', title: /^steam rom manager\b/ },
 
   // Emulators
-  { name: 'yuzu', title: /^yuzu\b/, exe: /^yuzu(-cmd)?$/ },
-  { name: 'suyu', title: /^suyu\b/ },
-  { name: 'Sudachi', title: /^sudachi\b/ },
-  { name: 'Citron', title: /^citron\b/ },
-  { name: 'Ryujinx', title: /^ryujinx\b/, exe: /^ryujinx$/ },
-  { name: 'RPCS3', title: /^rpcs3\b/, exe: /^rpcs3$/ },
-  { name: 'PCSX2', title: /^pcsx2\b/, exe: /^pcsx2/ },
-  { name: 'Dolphin', title: /^dolphin( emulator)?( x64)?$/, exe: /^dolphin$/ },
-  { name: 'RetroArch', title: /^retroarch\b/, exe: /^retroarch$/ },
-  { name: 'Cemu', title: /^cemu\b/, exe: /^cemu$/ },
-  { name: 'DuckStation', title: /^duckstation\b/, exe: /^duckstation/ },
-  { name: 'PPSSPP', title: /^ppsspp\b/, exe: /^ppssppwindows/ },
-  { name: 'Xenia', title: /^xenia\b/, exe: /^xenia/ },
-  { name: 'Citra', title: /^(citra|lime3ds|azahar)\b/ },
-  { name: 'melonDS', title: /^melonds\b/ },
-  { name: 'DeSmuME', title: /^desmume\b/ },
-  { name: 'mGBA', title: /^mgba\b/ },
-  { name: 'Vita3K', title: /^vita3k\b/ },
-  { name: 'shadPS4', title: /^shadps4\b/ },
+  { name: 'yuzu', kind: 'emulator', title: /^yuzu\b/, exe: /^yuzu(-cmd)?$/ },
+  { name: 'suyu', kind: 'emulator', title: /^suyu\b/ },
+  { name: 'Sudachi', kind: 'emulator', title: /^sudachi\b/ },
+  { name: 'Citron', kind: 'emulator', title: /^citron\b/ },
+  { name: 'Ryujinx', kind: 'emulator', title: /^ryujinx\b/, exe: /^ryujinx$/ },
+  { name: 'RPCS3', kind: 'emulator', title: /^rpcs3\b/, exe: /^rpcs3$/ },
+  { name: 'PCSX2', kind: 'emulator', title: /^pcsx2\b/, exe: /^pcsx2/ },
+  { name: 'Dolphin', kind: 'emulator', title: /^dolphin( emulator)?( x64)?$/, exe: /^dolphin$/ },
+  { name: 'RetroArch', kind: 'emulator', title: /^retroarch\b/, exe: /^retroarch$/ },
+  { name: 'Cemu', kind: 'emulator', title: /^cemu\b/, exe: /^cemu$/ },
+  { name: 'DuckStation', kind: 'emulator', title: /^duckstation\b/, exe: /^duckstation/ },
+  { name: 'PPSSPP', kind: 'emulator', title: /^ppsspp\b/, exe: /^ppssppwindows/ },
+  { name: 'Xenia', kind: 'emulator', title: /^xenia\b/, exe: /^xenia/ },
+  { name: 'Citra', kind: 'emulator', title: /^(citra|lime3ds|azahar)\b/ },
+  { name: 'melonDS', kind: 'emulator', title: /^melonds\b/ },
+  { name: 'DeSmuME', kind: 'emulator', title: /^desmume\b/ },
+  { name: 'mGBA', kind: 'emulator', title: /^mgba\b/ },
+  { name: 'Vita3K', kind: 'emulator', title: /^vita3k\b/ },
+  { name: 'shadPS4', kind: 'emulator', title: /^shadps4\b/ },
 
   // Trainers, controllers and recording
   { name: 'Cheat Engine', title: /^cheat engine\b/ },
@@ -79,6 +80,7 @@ const TOOLS: ToolEntry[] = [
 
 export interface ToolMatch {
   name: string
+  kind: 'tool' | 'emulator'
 }
 
 /** Returns the tool a game candidate actually is, or null when it looks like a game. */
@@ -86,8 +88,9 @@ export function matchTool(title: string, folderName: string, exePath: string | n
   const titles = [normalizeForComparison(title), normalizeForComparison(folderName)]
   const exe = exePath ? path.win32.basename(exePath).replace(/\.exe$/i, '').toLowerCase() : null
   for (const tool of TOOLS) {
-    if (titles.some((value) => tool.title.test(value))) return { name: tool.name }
-    if (exe && tool.exe?.test(exe)) return { name: tool.name }
+    const kind = tool.kind ?? 'tool'
+    if (titles.some((value) => tool.title.test(value))) return { name: tool.name, kind }
+    if (exe && tool.exe?.test(exe)) return { name: tool.name, kind }
   }
   return null
 }

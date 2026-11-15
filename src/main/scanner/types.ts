@@ -62,6 +62,8 @@ export interface ScanInput {
   includeRegistry: boolean
   includeLaunchers: boolean
   cache: ScanCache
+  /** Folders that are never games, such as the launcher's own install folder. */
+  excludePaths?: string[]
 }
 
 export interface ScanError {

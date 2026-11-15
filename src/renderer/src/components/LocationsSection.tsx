@@ -43,7 +43,8 @@ function RootRow({ root }: { root: LibraryRoot }) {
   )
 }
 
-export function LocationsView() {
+/** Settings section: the folders scanned for games. */
+export function LocationsSection() {
   const { roots, refreshRoots, startScan } = useLauncher()
   const userRoots = roots.filter((root) => root.kind === 'user')
   const autoRoots = roots.filter((root) => root.kind === 'auto')
@@ -56,41 +57,39 @@ export function LocationsView() {
   }
 
   return (
-    <div className="flex max-w-3xl flex-col gap-8 pb-10">
-      <div className="flex items-end justify-between gap-4">
+    <section className="flex flex-col gap-5 rounded-lg bg-surface px-6 py-5">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-semibold">Locations</h1>
-          <p className="mt-2 text-muted">Folders the launcher checks for games. Turn one off to skip it on the next scan.</p>
+          <h2 className="text-lg font-semibold">Game locations</h2>
+          <p className="mt-1 text-sm text-muted">Folders Orus checks for games. Turn one off to skip it on the next scan.</p>
         </div>
         <button type="button" onClick={() => void addLocation()} className="shrink-0 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-bright hover:text-black">
           Add folder
         </button>
       </div>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold">Your folders</h2>
+      <div className="flex flex-col gap-2">
+        <h3 className="text-sm font-semibold">Your folders</h3>
         {userRoots.length === 0 ? (
-          <p className="rounded-lg bg-surface px-5 py-4 text-sm text-muted">Add the folders where you keep games so they are always checked.</p>
+          <p className="rounded-md bg-canvas px-5 py-4 text-sm text-muted">Add the folders where you keep games so they are always checked.</p>
         ) : (
-          <ul className="divide-y divide-line rounded-lg bg-surface">
+          <ul className="divide-y divide-line rounded-md bg-canvas">
             {userRoots.map((root) => (
               <RootRow key={root.id} root={root} />
             ))}
           </ul>
         )}
-      </section>
+      </div>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold">Found automatically</h2>
-        <p className="text-sm text-muted">
-          Common game folders on every drive, plus Steam, Epic, installed programs and desktop shortcuts, which are always checked.
-        </p>
-        <ul className="divide-y divide-line rounded-lg bg-surface">
+      <div className="flex flex-col gap-2">
+        <h3 className="text-sm font-semibold">Found automatically</h3>
+        <p className="text-sm text-muted">Common game folders on every drive. Steam, Epic, installed programs and desktop shortcuts are always checked too.</p>
+        <ul className="divide-y divide-line rounded-md bg-canvas">
           {autoRoots.map((root) => (
             <RootRow key={root.id} root={root} />
           ))}
         </ul>
-      </section>
-    </div>
+      </div>
+    </section>
   )
 }

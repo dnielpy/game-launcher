@@ -13,7 +13,11 @@ const api: LauncherApi = {
     update: (id, patch) => ipcRenderer.invoke(IpcChannels.libraryUpdate, id, patch),
     launch: (id) => ipcRenderer.invoke(IpcChannels.libraryLaunch, id),
     openFolder: (id) => ipcRenderer.invoke(IpcChannels.libraryOpenFolder, id),
+    remove: (id) => ipcRenderer.invoke(IpcChannels.libraryRemove, id),
     onChanged: (listener) => subscribe(IpcChannels.libraryChanged, listener)
+  },
+  emulators: {
+    add: () => ipcRenderer.invoke(IpcChannels.emulatorsAdd)
   },
   installers: {
     list: () => ipcRenderer.invoke(IpcChannels.installersList)
@@ -42,6 +46,14 @@ const api: LauncherApi = {
   settings: {
     get: () => ipcRenderer.invoke(IpcChannels.settingsGet),
     setRawgKey: (key) => ipcRenderer.invoke(IpcChannels.settingsSetRawgKey, key)
+  },
+  updates: {
+    get: () => ipcRenderer.invoke(IpcChannels.updatesGet),
+    check: () => ipcRenderer.invoke(IpcChannels.updatesCheck),
+    download: () => ipcRenderer.invoke(IpcChannels.updatesDownload),
+    cancel: () => ipcRenderer.invoke(IpcChannels.updatesCancel),
+    install: () => ipcRenderer.invoke(IpcChannels.updatesInstall),
+    onStatus: (listener) => subscribe(IpcChannels.updatesStatus, listener)
   },
   openExternal: (url) => ipcRenderer.invoke(IpcChannels.openExternal, url)
 }

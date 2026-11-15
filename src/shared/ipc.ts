@@ -8,7 +8,8 @@ import type {
   PendingInstaller,
   ScanProgress,
   ScanSummary,
-  SettingsState
+  SettingsState,
+  UpdateStatus
 } from './types'
 
 export const IpcChannels = {
@@ -17,6 +18,8 @@ export const IpcChannels = {
   libraryLaunch: 'library:launch',
   libraryOpenFolder: 'library:open-folder',
   libraryChanged: 'library:changed',
+  libraryRemove: 'library:remove',
+  emulatorsAdd: 'emulators:add',
   installersList: 'installers:list',
   rootsList: 'roots:list',
   rootsAdd: 'roots:add',
@@ -35,7 +38,13 @@ export const IpcChannels = {
   metadataGetProgress: 'metadata:get-progress',
   settingsGet: 'settings:get',
   settingsSetRawgKey: 'settings:set-rawg-key',
-  openExternal: 'app:open-external'
+  openExternal: 'app:open-external',
+  updatesGet: 'updates:get',
+  updatesCheck: 'updates:check',
+  updatesDownload: 'updates:download',
+  updatesCancel: 'updates:cancel',
+  updatesInstall: 'updates:install',
+  updatesStatus: 'updates:status'
 } as const
 
 export type Unsubscribe = () => void
@@ -46,8 +55,14 @@ export interface LauncherApi {
     update(id: number, patch: GamePatch): Promise<Game>
     launch(id: number): Promise<void>
     openFolder(id: number): Promise<void>
+    /** Deletes entries added by hand; hides detected ones so the next scan does not bring them back. */
+    remove(id: number): Promise<void>
     /** Fires when games change outside the renderer: new covers, finished play sessions. */
     onChanged(listener: (payload: { runningGameIds: number[] }) => void): Unsubscribe
+  }
+  emulators: {
+    /** Opens a file picker for the emulator's executable. Resolves to null when the user cancels. */
+    add(): Promise<Game | null>
   }
   installers: {
     list(): Promise<PendingInstaller[]>
@@ -78,6 +93,16 @@ export interface LauncherApi {
   settings: {
     get(): Promise<SettingsState>
     setRawgKey(key: string | null): Promise<SettingsState>
+  }
+  updates: {
+    get(): Promise<UpdateStatus>
+    check(): Promise<UpdateStatus>
+    /** Starts the download. Progress arrives through onStatus. */
+    download(): Promise<void>
+    cancel(): Promise<void>
+    /** Closes Orus and runs the downloaded installer. */
+    install(): Promise<void>
+    onStatus(listener: (status: UpdateStatus) => void): Unsubscribe
   }
   openExternal(url: string): Promise<void>
 }

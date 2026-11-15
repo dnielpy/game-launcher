@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import type { Game } from '@shared/types'
 import { Hero } from '../components/GameArt'
 import { GameTile } from '../components/GameTile'
@@ -9,7 +10,8 @@ function Row({ title, games, showPlaytime = false }: { title: string; games: Gam
   return (
     <section className="flex flex-col gap-3">
       <h2 className="font-display text-xl font-semibold">{title}</h2>
-      <div className="grid auto-cols-[160px] grid-flow-col gap-4 overflow-x-auto pb-3">
+      {/* Padding inside the scroller leaves room for the hover ring and zoom, which overflow clipping would cut. */}
+      <div className="-mx-3 grid auto-cols-[160px] grid-flow-col gap-4 overflow-x-auto px-3 pb-3 pt-2">
         {games.map((game) => (
           <GameTile key={game.id} game={game} showPlaytime={showPlaytime} />
         ))}
@@ -71,6 +73,14 @@ function Featured({ game }: { game: Game }) {
 export function HomeView() {
   const { games, scanning, startScan, loaded } = useLauncher()
   const visible = games.filter((game) => game.category === 'game' && !game.hidden && game.status === 'installed')
+  // Nothing played yet: any game, preferring ones with a banner. Picked once and kept while it stays in the library.
+  const pickedId = useRef<number | null>(null)
+  const pool = visible.filter((game) => game.metadata?.heroFile)
+  const candidates = pool.length > 0 ? pool : visible
+  if (candidates.length > 0 && !candidates.some((game) => game.id === pickedId.current)) {
+    pickedId.current = candidates[Math.floor(Math.random() * candidates.length)]!.id
+  }
+  const randomPick = candidates.find((game) => game.id === pickedId.current)
 
   if (visible.length === 0) {
     if (!loaded) return null
@@ -93,8 +103,7 @@ export function HomeView() {
   const recentlyAdded = [...visible].sort((a, b) => b.addedAt.localeCompare(a.addedAt)).slice(0, 14)
   const favorites = visible.filter((game) => game.favorite)
   const mostPlayed = visible.filter((game) => game.playtimeSeconds > 0).sort((a, b) => b.playtimeSeconds - a.playtimeSeconds).slice(0, 14)
-  const withArt = (list: Game[]) => list.find((game) => game.metadata?.heroFile)
-  const featured = recentlyPlayed[0] ?? withArt(favorites) ?? withArt(recentlyAdded) ?? recentlyAdded[0]!
+  const featured = recentlyPlayed[0] ?? randomPick ?? visible[0]!
 
   return (
     <div className="flex flex-col gap-10 pb-10">

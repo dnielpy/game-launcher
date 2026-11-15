@@ -2,6 +2,7 @@ import Database from 'better-sqlite3'
 import { sqliteAvailable } from './sqlite'
 import { describe, expect, it } from 'vitest'
 import { migrate } from '../src/main/db/database'
+import { MIGRATIONS } from '../src/main/db/migrations'
 import { Repository } from '../src/main/db/repository'
 import type { GameMetadata } from '../src/shared/types'
 import type { ScanCandidate } from '../src/main/scanner/types'
@@ -99,9 +100,43 @@ describe.skipIf(!sqliteAvailable)('Repository', () => {
     expect(repository.getGame(id)!.metadataStatus).toBe('pending')
   })
 
+  it('adds an emulator picked by hand, or converts a detected entry', () => {
+    const repository = setup()
+    const added = repository.addManualEntry({ exePath: 'E:\\Emus\\PCSX2\\pcsx2-qt.exe', installPath: 'E:\\Emus\\PCSX2', title: 'PCSX2', category: 'emulator', sizeBytes: 5 })
+    expect(repository.getGame(added)).toMatchObject({ category: 'emulator', metadataStatus: 'skipped', sources: ['manual'], manualFields: ['category', 'exe'] })
+
+    const detected = repository.insertGame(candidate({ installPath: 'E:\\Emus\\Dolphin', title: 'Dolphin', category: 'tool' }))
+    const again = repository.addManualEntry({ exePath: 'E:\\Emus\\Dolphin\\Dolphin.exe', installPath: 'e:\\emus\\dolphin', title: 'Dolphin', category: 'emulator', sizeBytes: 5 })
+    expect(again).toBe(detected)
+    expect(repository.getGame(detected)!.category).toBe('emulator')
+    expect(repository.getGame(detected)!.launch).toMatchObject({ exePath: 'E:\\Emus\\Dolphin\\Dolphin.exe' })
+  })
+
   it('stores installer kinds', () => {
     const repository = setup()
     repository.replaceInstallers([{ kind: 'update', path: 'D:\\x', title: 'Forza Horizon 6', sizeBytes: 1 }])
     expect(repository.listInstallers()[0]!.kind).toBe('update')
+  })
+})
+
+describe.skipIf(!sqliteAvailable)('migration 3', () => {
+  it('keeps games and play sessions when the games table is rebuilt', () => {
+    const db = new Database(':memory:')
+    // Apply versions 1 and 2 only, as an older install would have.
+    for (const migration of MIGRATIONS.filter((item) => item.version <= 2)) {
+      db.exec(migration.sql)
+      db.pragma(`user_version = ${migration.version}`)
+    }
+    db.prepare(`INSERT INTO games (install_path, folder_name, title, search_title, added_at, updated_at, last_seen_at) VALUES ('C:\\\\yuzu', 'yuzu', 'yuzu', 'yuzu', 'a', 'a', 'a')`).run()
+    db.prepare(`INSERT INTO play_sessions (game_id, started_at, ended_at, seconds) VALUES (1, 'a', 'b', 600)`).run()
+    db.pragma('foreign_keys = ON')
+
+    migrate(db)
+    db.pragma('foreign_keys = ON')
+    const repository = new Repository(db)
+    expect(repository.getGame(1)!.playtimeSeconds).toBe(600)
+    repository.updateGame(1, { category: 'emulator' })
+    expect(repository.getGame(1)!.category).toBe('emulator')
+    expect(db.pragma('foreign_key_check')).toEqual([])
   })
 })

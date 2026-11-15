@@ -5,11 +5,15 @@ import { IpcChannels } from '@shared/ipc'
 import type { GamePatch, ManualField } from '@shared/types'
 import type { Repository } from './db/repository'
 import type { MetadataService } from './metadata/metadataService'
-import { isDirectory } from './scanner/fsUtils'
+import { fileSize, isDirectory } from './scanner/fsUtils'
+import { cleanDisplayTitle } from './scanner/nameCleaner'
+import { matchTool } from './scanner/toolCatalog'
+import { extractIcon } from './services/icons'
 import { launchGame, openGameFolder } from './services/launcher'
 import type { PlaytimeTracker } from './services/playtime'
 import type { ScanService } from './services/scanService'
 import type { SettingsService } from './services/settings'
+import type { UpdateService } from './updates/updateService'
 
 export interface IpcServices {
   repository: Repository
@@ -17,10 +21,11 @@ export interface IpcServices {
   metadata: MetadataService
   playtime: PlaytimeTracker
   settings: SettingsService
+  updates: UpdateService
   notifyLibraryChanged: () => void
 }
 
-const ALLOWED_EXTERNAL_HOSTS = ['store.steampowered.com', 'rawg.io', 'www.rawg.io']
+const ALLOWED_EXTERNAL_HOSTS = ['store.steampowered.com', 'rawg.io', 'www.rawg.io', 'github.com']
 
 const idSchema = z.number().int().positive()
 const patchSchema = z
@@ -30,7 +35,7 @@ const patchSchema = z
     launchArgs: z.string().max(2000).optional(),
     hidden: z.boolean().optional(),
     favorite: z.boolean().optional(),
-    category: z.enum(['game', 'tool']).optional()
+    category: z.enum(['game', 'tool', 'emulator']).optional()
   })
   .strict()
 
@@ -38,7 +43,15 @@ const sourceSchema = z.enum(['steam', 'rawg'])
 const externalIdSchema = z.string().regex(/^\d{1,12}$/)
 
 export function registerIpcHandlers(services: IpcServices): void {
-  const { repository, scanService, metadata, playtime, settings } = services
+  const { repository, scanService, metadata, playtime, settings, updates } = services
+
+  ipcMain.handle(IpcChannels.updatesGet, () => updates.getStatus())
+  ipcMain.handle(IpcChannels.updatesCheck, () => updates.check())
+  ipcMain.handle(IpcChannels.updatesDownload, () => {
+    void updates.download()
+  })
+  ipcMain.handle(IpcChannels.updatesCancel, () => updates.cancel())
+  ipcMain.handle(IpcChannels.updatesInstall, () => updates.install())
 
   ipcMain.handle(IpcChannels.libraryList, () => repository.listGames())
 
@@ -97,6 +110,33 @@ export function registerIpcHandlers(services: IpcServices): void {
     const game = repository.getGame(idSchema.parse(rawId))
     if (!game) throw new Error('Game not found')
     await openGameFolder(game)
+  })
+
+  ipcMain.handle(IpcChannels.libraryRemove, (_event, rawId: unknown) => {
+    const game = repository.getGame(idSchema.parse(rawId))
+    if (!game) return
+    if (game.sources.includes('manual') && game.sources.length === 1) repository.deleteGames([game.id])
+    else repository.updateGame(game.id, { hidden: true })
+  })
+
+  ipcMain.handle(IpcChannels.emulatorsAdd, async (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const options = {
+      title: 'Choose the emulator executable',
+      properties: ['openFile' as const],
+      filters: [{ name: 'Programs', extensions: ['exe'] }]
+    }
+    const result = window ? await dialog.showOpenDialog(window, options) : await dialog.showOpenDialog(options)
+    const exePath = result.filePaths[0]
+    if (result.canceled || !exePath || !/\.exe$/i.test(exePath)) return null
+
+    const installPath = path.dirname(exePath)
+    const known = matchTool(path.basename(installPath), path.basename(installPath), exePath)
+    const title = known?.name ?? cleanDisplayTitle(path.basename(exePath, path.extname(exePath)))
+    const id = repository.addManualEntry({ exePath, installPath, title, category: 'emulator', sizeBytes: await fileSize(exePath) })
+    const iconFile = await extractIcon(id, exePath)
+    if (iconFile) repository.setIcon(id, iconFile)
+    return repository.getGame(id)
   })
 
   ipcMain.handle(IpcChannels.installersList, () => repository.listInstallers())

@@ -111,9 +111,9 @@ describe('runScan', () => {
     )
   })
 
-  it('puts launchers, emulators and utilities in tools', () => {
+  it('puts emulators and utilities in their own sections', () => {
     expect(game('MSI Afterburner').category).toBe('tool')
-    expect(game('yuzu').category).toBe('tool')
+    expect(game('yuzu').category).toBe('emulator')
     expect(game('Hollow Knight').category).toBe('game')
   })
 

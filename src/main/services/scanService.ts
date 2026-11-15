@@ -1,4 +1,4 @@
-import { utilityProcess, type UtilityProcess } from 'electron'
+import { app, utilityProcess, type UtilityProcess } from 'electron'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import type { LibraryRoot, ScanProgress, ScanSummary } from '@shared/types'
@@ -58,7 +58,8 @@ export class ScanService {
         shortcuts: await readShortcuts(),
         includeRegistry: true,
         includeLaunchers: true,
-        cache: this.repository.loadScanCache()
+        cache: this.repository.loadScanCache(),
+        excludePaths: app.isPackaged ? [path.dirname(app.getPath('exe'))] : []
       }
       const output = await this.runWorker(input)
       if (!output) {
@@ -140,16 +141,22 @@ export class ScanService {
     const gamesById = new Map(this.repository.listGames().map((game) => [game.id, game]))
     const rejected = plan.missing.filter((id) => {
       const game = gamesById.get(id)
-      return game !== undefined && game.playtimeSeconds === 0 && game.manualFields.length === 0 && !game.favorite && existsSync(game.installPath)
+      return game !== undefined && !game.sources.includes('manual') && game.playtimeSeconds === 0 && game.manualFields.length === 0 && !game.favorite && existsSync(game.installPath)
     })
-    const missing = plan.missing.filter((id) => !rejected.includes(id))
+    // Programs added by hand are never found by the scan; they stay as long as their executable exists.
+    const isManualAndPresent = (id: number) => {
+      const game = gamesById.get(id)
+      return game !== undefined && game.sources.includes('manual') && game.launch?.type === 'exe' && existsSync(game.launch.exePath)
+    }
+    const missing = plan.missing.filter((id) => !rejected.includes(id) && !isManualAndPresent(id))
+    const unavailable = plan.unavailable.filter((id) => !isManualAndPresent(id))
 
     this.repository.transaction(() => {
       for (const candidate of plan.inserts) newIds.push(this.repository.insertGame(candidate))
       for (const { id, candidate } of [...plan.updates, ...plan.relinks]) this.repository.applyScanResult(id, candidate)
       this.repository.deleteGames(rejected)
       this.repository.setStatus(missing, 'missing')
-      this.repository.setStatus(plan.unavailable, 'unavailable')
+      this.repository.setStatus(unavailable, 'unavailable')
       this.repository.replaceInstallers(output.installers)
       this.repository.saveScanCache(output.cache)
       this.repository.markRootsScanned(output.reachableRoots)

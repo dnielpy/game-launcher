@@ -76,5 +76,43 @@ export const MIGRATIONS: { version: number; sql: string }[] = [
       );
       CREATE INDEX play_sessions_game ON play_sessions(game_id, started_at);
     `
+  },
+  {
+    // Emulators get their own section. SQLite cannot change a CHECK constraint, so the table is rebuilt.
+    // Foreign keys are off while migrations run, so play sessions survive the rebuild.
+    version: 3,
+    sql: `
+      CREATE TABLE games_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        install_path TEXT NOT NULL UNIQUE COLLATE NOCASE,
+        folder_name TEXT NOT NULL,
+        title TEXT NOT NULL,
+        search_title TEXT NOT NULL,
+        launch TEXT,
+        sources TEXT NOT NULL DEFAULT '[]',
+        category TEXT NOT NULL DEFAULT 'game' CHECK (category IN ('game', 'tool', 'emulator')),
+        engine TEXT NOT NULL DEFAULT 'unknown',
+        confidence INTEGER NOT NULL DEFAULT 0,
+        needs_review INTEGER NOT NULL DEFAULT 0,
+        exe_candidates TEXT NOT NULL DEFAULT '[]',
+        size_bytes INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'installed' CHECK (status IN ('installed', 'missing', 'unavailable')),
+        hidden INTEGER NOT NULL DEFAULT 0,
+        favorite INTEGER NOT NULL DEFAULT 0,
+        icon_path TEXT,
+        manual_fields TEXT NOT NULL DEFAULT '[]',
+        metadata TEXT,
+        metadata_status TEXT NOT NULL DEFAULT 'pending'
+          CHECK (metadata_status IN ('pending', 'matched', 'not_found', 'skipped')),
+        metadata_updated_at TEXT,
+        added_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        last_seen_at TEXT NOT NULL
+      );
+      INSERT INTO games_new (id, install_path, folder_name, title, search_title, launch, sources, category, engine, confidence, needs_review, exe_candidates, size_bytes, status, hidden, favorite, icon_path, manual_fields, metadata, metadata_status, metadata_updated_at, added_at, updated_at, last_seen_at) SELECT id, install_path, folder_name, title, search_title, launch, sources, category, engine, confidence, needs_review, exe_candidates, size_bytes, status, hidden, favorite, icon_path, manual_fields, metadata, metadata_status, metadata_updated_at, added_at, updated_at, last_seen_at FROM games;
+      DROP TABLE games;
+      ALTER TABLE games_new RENAME TO games;
+      CREATE INDEX games_status ON games(status);
+    `
   }
 ]

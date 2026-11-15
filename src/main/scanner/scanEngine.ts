@@ -249,6 +249,7 @@ export class ScanEngine {
     classification: Classification,
     extraSources: DetectionSource[]
   ): Promise<void> {
+    if ((this.input.excludePaths ?? []).some((excluded) => isSameOrInside(folder, excluded))) return
     const key = pathKey(folder)
     const existing = this.games.get(key)
     if (existing) {
@@ -501,12 +502,12 @@ export class ScanEngine {
 
 // ------------------------------------------------------------------ free functions
 
-/** Launchers, emulators and utilities are tools: they get their proper name and leave the game library. */
+/** Emulators, launchers and utilities get their proper name and leave the game library. */
 function applyToolCatalog(game: ScanCandidate): ScanCandidate {
   const exePath = game.launch?.type === 'exe' ? game.launch.exePath : (game.exeCandidates[0]?.path ?? null)
   const tool = matchTool(game.title, game.folderName, exePath)
   if (!tool) return game
-  return { ...game, category: 'tool', title: tool.name, searchTitle: tool.name, needsReview: false }
+  return { ...game, category: tool.kind, title: tool.name, searchTitle: tool.name, needsReview: false }
 }
 
 function parentKey(target: string): string {

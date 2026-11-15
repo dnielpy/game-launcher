@@ -1,7 +1,7 @@
 import { create } from 'zustand'
-import type { Game, LibraryRoot, MetadataProgress, PendingInstaller, ScanProgress, ScanSummary } from '@shared/types'
+import type { Game, LibraryRoot, MetadataProgress, PendingInstaller, ScanProgress, ScanSummary, UpdateStatus } from '@shared/types'
 
-export type View = 'home' | 'library' | 'tools' | 'installers' | 'locations' | 'settings'
+export type View = 'home' | 'library' | 'emulators' | 'tools' | 'settings'
 
 interface LauncherState {
   view: View
@@ -18,6 +18,7 @@ interface LauncherState {
   /** The user sent the current scan to the background; do not pop the card up again. */
   overlayDismissed: boolean
   lastSummary: ScanSummary | null
+  update: UpdateStatus | null
   error: string | null
   loaded: boolean
   setView: (view: View) => void
@@ -44,6 +45,7 @@ export const useLauncher = create<LauncherState>((set, get) => ({
   overlayVisible: false,
   overlayDismissed: false,
   lastSummary: null,
+  update: null,
   error: null,
   loaded: false,
 
@@ -98,7 +100,10 @@ export function connectEvents(): () => void {
     useLauncher.setState({ runningGameIds })
     void useLauncher.getState().refresh()
   })
+  const offUpdates = window.api.updates.onStatus((update) => useLauncher.setState({ update }))
+  void window.api.updates.get().then((update) => useLauncher.setState({ update }))
   return () => {
+    offUpdates()
     offProgress()
     offFinished()
     offMetadata()

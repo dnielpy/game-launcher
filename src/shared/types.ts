@@ -1,11 +1,11 @@
 /** Where a detected game came from. A game can have several sources. */
-export type DetectionSource = 'folder' | 'registry' | 'shortcut' | 'steam' | 'epic'
+export type DetectionSource = 'folder' | 'registry' | 'shortcut' | 'steam' | 'epic' | 'manual'
 
 /** Game engine inferred from files on disk. */
 export type GameEngine = 'unity' | 'unreal' | 'gamemaker' | 'godot' | 'rpgmaker' | 'unknown'
 
-/** Games go to the library; launchers, emulators and utilities go to Tools. */
-export type GameCategory = 'game' | 'tool'
+/** Games go to the library, emulators to Emulators, launchers and utilities to Tools. */
+export type GameCategory = 'game' | 'tool' | 'emulator'
 
 /** How a library root should be treated by the classifier. */
 export type RootCategory = 'games' | 'noisy'
@@ -154,4 +154,15 @@ export interface GamePatch {
   hidden?: boolean
   favorite?: boolean
   category?: GameCategory
+}
+
+export type UpdateState = 'idle' | 'checking' | 'up-to-date' | 'available' | 'downloading' | 'downloaded' | 'installing' | 'error'
+
+export interface UpdateStatus {
+  state: UpdateState
+  currentVersion: string
+  latest: { version: string; notes: string | null; publishedAt: string | null; sizeBytes: number } | null
+  download: { receivedBytes: number; totalBytes: number; bytesPerSecond: number } | null
+  error: string | null
+  checkedAt: string | null
 }

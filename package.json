@@ -1,7 +1,7 @@
 {
   "name": "game-launcher",
-  "version": "0.2.0",
-  "description": "Local game library launcher for Windows. Scans your drives, fetches metadata and tracks playtime.",
+  "version": "0.3.0",
+  "description": "Orus, a local game library launcher for Windows. Scans your drives, fetches metadata and tracks playtime.",
   "main": "./out/main/index.js",
   "author": "dnielpy",
   "license": "UNLICENSED",

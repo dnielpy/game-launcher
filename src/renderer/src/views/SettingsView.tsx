@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { SettingsState } from '@shared/types'
+import { LocationsSection } from '../components/LocationsSection'
+import { UpdatesSection } from '../components/UpdatesSection'
 import { errorMessage, useLauncher } from '../store'
 
 export function SettingsView() {
@@ -23,8 +25,12 @@ export function SettingsView() {
   }
 
   return (
-    <div className="flex max-w-2xl flex-col gap-8 pb-10">
+    <div className="flex max-w-3xl flex-col gap-6 pb-10">
       <h1 className="font-display text-3xl font-semibold">Settings</h1>
+
+      <UpdatesSection />
+
+      <LocationsSection />
 
       <section className="flex flex-col gap-3 rounded-lg bg-surface px-6 py-5">
         <h2 className="text-lg font-semibold">Covers and game details</h2>

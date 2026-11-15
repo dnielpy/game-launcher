@@ -11,7 +11,10 @@ import { gameMediaDirectory, iconsDirectory } from './services/icons'
 import { PlaytimeTracker } from './services/playtime'
 import { ScanService } from './services/scanService'
 import { SettingsService } from './services/settings'
+import { UpdateService } from './updates/updateService'
+import { configureUserData } from './userData'
 
+configureUserData()
 registerMediaScheme()
 
 let mainWindow: BrowserWindow | null = null
@@ -25,7 +28,9 @@ function createWindow(): BrowserWindow {
     show: false,
     backgroundColor: '#101214',
     autoHideMenuBar: true,
-    title: 'Game Launcher',
+    title: 'Orus',
+    // Packaged builds take the icon from the executable.
+    ...(app.isPackaged ? {} : { icon: path.join(__dirname, '../../resources/icon.png') }),
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -66,7 +71,7 @@ if (!hasLock) {
 
   void app.whenReady().then(async () => {
     initLogger(path.join(app.getPath('userData'), 'logs'))
-    log.info(`Starting Game Launcher ${app.getVersion()}`)
+    log.info(`Starting Orus ${app.getVersion()}`)
 
     const db = openDatabase(path.join(app.getPath('userData'), 'library.db'))
     const repository = new Repository(db)
@@ -97,8 +102,11 @@ if (!hasLock) {
       onSaved: () => void metadata.runPending()
     })
 
+    const updates = new UpdateService((status) => send(IpcChannels.updatesStatus, status))
+
     handleMediaProtocol({ icons: iconsDirectory(), games: gameMediaDirectory() })
-    registerIpcHandlers({ repository, scanService, metadata, playtime, settings, notifyLibraryChanged })
+    registerIpcHandlers({ repository, scanService, metadata, playtime, settings, updates, notifyLibraryChanged })
+    updates.startSchedule()
     mainWindow = createWindow()
 
     // Every start rescans (fast after the first time, thanks to the cache) and fills in missing covers.
@@ -114,6 +122,7 @@ if (!hasLock) {
     app.on('before-quit', () => {
       scanService.cancel()
       playtime.stop()
+      updates.stop()
     })
 
     app.on('will-quit', () => db.close())

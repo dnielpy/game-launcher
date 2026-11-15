@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="ring" x1="0.15" y1="0.1" x2="0.85" y2="0.95">
+      <stop offset="0" stop-color="#7CF27C"/>
+      <stop offset="0.55" stop-color="#3FBF3F"/>
+      <stop offset="1" stop-color="#0E6E0E"/>
+    </linearGradient>
+    <radialGradient id="bg" cx="0.3" cy="0.25" r="0.9">
+      <stop offset="0" stop-color="#2A2F35"/>
+      <stop offset="1" stop-color="#121417"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <!-- Ring with an opening at the upper right, where the orbiting point sits -->
+  <path d="M 357.8 154.2 A 144 144 0 1 0 400 256" fill="none" stroke="url(#ring)" stroke-width="56" stroke-linecap="round"/>
+  <!-- Inner eye -->
+  <circle cx="256" cy="256" r="40" fill="#F3F4F5"/>
+  <!-- Orbiting point -->
+  <circle cx="389" cy="201" r="24" fill="#F3F4F5"/>
+</svg>

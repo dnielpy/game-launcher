@@ -162,7 +162,7 @@ export class Repository {
          VALUES (@installPath, @folderName, @title, @searchTitle, @launch, @sources, @category, @engine, @confidence,
           @needsReview, @exeCandidates, @sizeBytes, 'installed', @metadataStatus, @timestamp, @timestamp, @timestamp)`
       )
-      .run({ ...this.candidateParams(candidate), metadataStatus: candidate.category === 'tool' ? 'skipped' : 'pending', timestamp })
+      .run({ ...this.candidateParams(candidate), metadataStatus: candidate.category === 'game' ? 'pending' : 'skipped', timestamp })
     return Number(result.lastInsertRowid)
   }
 
@@ -190,7 +190,7 @@ export class Repository {
     const searchTitleChanged = current.searchTitle !== candidate.searchTitle && !manual.has('match')
 
     let metadataStatus: MetadataStatus = current.metadataStatus
-    if (category === 'tool') metadataStatus = 'skipped'
+    if (category !== 'game') metadataStatus = 'skipped'
     else if (current.metadataStatus === 'skipped') metadataStatus = 'pending'
     // A better cleaned name deserves a new lookup when the old one found nothing.
     else if (current.metadataStatus === 'not_found' && searchTitleChanged) metadataStatus = 'pending'
@@ -221,6 +221,37 @@ export class Repository {
     for (const id of ids) statement.run(status, timestamp, id)
   }
 
+  /** Adds a program the user picked by hand (an emulator). Picking an already known folder reuses that entry. */
+  addManualEntry(entry: { exePath: string; installPath: string; title: string; category: GameCategory; sizeBytes: number }): number {
+    const existing = this.listGames().find((game) => game.installPath.toLowerCase() === entry.installPath.toLowerCase())
+    const launch: LaunchTarget = { type: 'exe', exePath: entry.exePath, args: '', workingDir: entry.installPath }
+    if (existing) {
+      const manual = new Set<ManualField>([...existing.manualFields, 'category', 'exe'])
+      const candidates = existing.exeCandidates.some((candidate) => candidate.path.toLowerCase() === entry.exePath.toLowerCase())
+        ? existing.exeCandidates
+        : [{ path: entry.exePath, score: 100, sizeBytes: entry.sizeBytes }, ...existing.exeCandidates]
+      this.db.prepare('UPDATE games SET exe_candidates = ?, hidden = 0 WHERE id = ?').run(JSON.stringify(candidates), existing.id)
+      this.updateGame(existing.id, { category: entry.category, launch, manualFields: [...manual], needsReview: false })
+      return existing.id
+    }
+    const id = this.insertGame({
+      installPath: entry.installPath,
+      folderName: entry.installPath.split(/[\\/]/).pop() ?? entry.title,
+      title: entry.title,
+      searchTitle: entry.title,
+      sources: ['manual'],
+      category: entry.category,
+      engine: 'unknown',
+      confidence: 100,
+      needsReview: false,
+      launch,
+      exeCandidates: [{ path: entry.exePath, score: 100, sizeBytes: entry.sizeBytes }],
+      sizeBytes: entry.sizeBytes
+    })
+    this.updateGame(id, { manualFields: ['category', 'exe'] })
+    return id
+  }
+
   deleteGames(ids: number[]): void {
     const statement = this.db.prepare('DELETE FROM games WHERE id = ?')
     for (const id of ids) statement.run(id)
@@ -235,7 +266,7 @@ export class Repository {
     if (!current) throw new Error(`Game ${id} not found`)
     const category = patch.category ?? current.category
     let metadataStatus = current.metadataStatus
-    if (category === 'tool') metadataStatus = 'skipped'
+    if (category !== 'game') metadataStatus = 'skipped'
     else if (current.metadataStatus === 'skipped') metadataStatus = 'pending'
 
     this.db
