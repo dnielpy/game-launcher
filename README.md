@@ -1,6 +1,6 @@
 # Game Launcher
 
-A local game library for Windows. It finds the games installed on your PC, shows them in one place and starts them with one click. Metadata from RAWG and playtime tracking are next on the roadmap.
+A local game library for Windows. It finds the games installed on your PC, shows them with box art, banners and details, starts them with one click and counts the hours you play.
 
 ## Features (phase 1)
 
@@ -11,6 +11,15 @@ A local game library for Windows. It finds the games installed on your PC, shows
 - **Clean titles.** Strips repack tags, versions, build numbers and DLC suffixes from folder names.
 - **Pending installers.** Repack installers that are not installed yet are listed separately.
 - **Safe rescans.** Scans run in a separate process and can be cancelled. Folder sizes are cached. Games that moved are relinked, games that disappeared are marked as not found, games on a disconnected drive are marked unavailable. Nothing you edited by hand is overwritten.
+
+## Covers, details and play time (0.2)
+
+- **Covers and details** come from the public Steam store (no key needed): vertical box art, hero banner, logo, description, genres, developer, release date, player review score and Metacritic. Images are cached in `%APPDATA%/game-launcher/media`.
+- **RAWG** is the fallback for games that are not on Steam. Add a free key under *Settings*.
+- **Official names**: when a game is matched, the catalog name replaces the folder name (unless you renamed it). Wrong match? *Manage → Search again*.
+- **Tools**: launchers, emulators and utilities (MSI Afterburner, RivaTuner, Steam, yuzu...) go to their own section. Move anything between Tools and the library from *Manage*.
+- **Updates and duplicates**: update packages (`Game update 1.2 - 1.3`) and self-extracting installers are listed under *Not installed*, not as games. Copies of the same game side by side are merged.
+- **Play time**: after you press Play, the launcher watches the process list (`tasklist`) and records the session.
 
 ## Getting started
 
@@ -54,8 +63,8 @@ tests/                Vitest suites with on-disk fixtures
 
 - [x] Phase 0: project setup, database, IPC
 - [x] Phase 1: scanner, library UI, basic launching
-- [ ] Phase 2: playtime tracking (sessions by process path)
-- [ ] Phase 3: RAWG metadata and match review
+- [x] Phase 2: playtime tracking
+- [x] Phase 3: Steam and RAWG metadata, match review
 - [ ] Phase 4: full Xbox-style interface
 - [ ] Phase 5: statistics
 - [ ] Phase 6: SteamGridDB art, gamepad navigation, installer

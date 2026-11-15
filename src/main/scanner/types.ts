@@ -1,4 +1,4 @@
-import type { DetectionSource, ExecutableCandidate, GameEngine, LaunchTarget, RootCategory } from '@shared/types'
+import type { DetectionSource, ExecutableCandidate, GameCategory, GameEngine, LaunchTarget, RootCategory } from '@shared/types'
 
 export interface ScanRoot {
   path: string
@@ -33,6 +33,7 @@ export interface ScanCandidate {
   title: string
   searchTitle: string
   sources: DetectionSource[]
+  category: GameCategory
   engine: GameEngine
   confidence: number
   needsReview: boolean
@@ -42,6 +43,7 @@ export interface ScanCandidate {
 }
 
 export interface InstallerCandidate {
+  kind: 'installer' | 'update'
   path: string
   title: string
   sizeBytes: number

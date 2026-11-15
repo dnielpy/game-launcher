@@ -6,7 +6,8 @@ import { inspectFolder, type FolderInspection } from './folderInspector'
 import { pickExecutable, workingDirFor } from './executablePicker'
 import { isExcludedFolderName } from './exclusions'
 import { directorySize, isDirectory, isSameOrInside, pathKey, readDirSafe, realPathSafe, withTimeout } from './fsUtils'
-import { cleanDisplayTitle, cleanSearchTitle } from './nameCleaner'
+import { cleanDisplayTitle, cleanSearchTitle, normalizeForComparison } from './nameCleaner'
+import { matchTool } from './toolCatalog'
 import { readEpicLibrary } from './sources/epic'
 import { readUninstallEntries } from './sources/registry'
 import { readSteamLibrary } from './sources/steam'
@@ -66,6 +67,8 @@ export class ScanEngine {
   private shortcutTargets: string[] = []
   private foldersVisited = 0
   private lastProgressAt = 0
+  private rootIndex = 0
+  private rootProgress = 0
 
   constructor(
     private readonly input: ScanInput,
@@ -89,14 +92,16 @@ export class ScanEngine {
       .filter((target) => /\.exe$/i.test(target))
 
     const reachableRoots: string[] = []
-    for (const root of this.input.roots) {
+    for (const [index, root] of this.input.roots.entries()) {
       this.throwIfCancelled()
+      this.rootIndex = index
+      this.rootProgress = 0
       if (!(await isDirectory(root.path))) {
         this.errors.push({ path: root.path, message: 'Location is not reachable' })
         continue
       }
       reachableRoots.push(root.path)
-      this.report('folders', `Scanning ${root.path}`, true)
+      this.report('folders', `Scanning ${root.path}`, true, root.path)
       await this.scanRoot(root)
     }
 
@@ -105,7 +110,7 @@ export class ScanEngine {
     await this.scanShortcutTargets(this.input.shortcuts)
     await this.addLauncherEntries(launcherEntries)
 
-    const games = this.collapseNested([...this.games.values()])
+    const games = mergeDuplicates(this.collapseNested([...this.games.values()])).map(applyToolCatalog)
     this.report('done', `Found ${games.length} games`, true)
 
     return {
@@ -152,8 +157,9 @@ export class ScanEngine {
       return
     }
 
-    for (const entry of entries) {
+    for (const [index, entry] of entries.entries()) {
       this.throwIfCancelled()
+      if (depth === 0) this.rootProgress = index / Math.max(1, entries.length)
       if (!entry.isDirectory() || isExcludedFolderName(entry.name)) continue
       const child = path.join(dir, entry.name)
 
@@ -173,8 +179,8 @@ export class ScanEngine {
       const { inspection, classification } = result
       const canDescend = depth + 1 < MAX_WALK_DEPTH
 
-      if (classification.kind === 'installer') {
-        await this.acceptInstaller(child)
+      if (classification.kind === 'installer' || classification.kind === 'update') {
+        await this.acceptInstaller(child, classification.kind)
       } else if (classification.kind === 'game') {
         const layout = analyzeLayout(inspection, classification.engine)
         if (layout.type !== 'single' && canDescend) {
@@ -198,7 +204,7 @@ export class ScanEngine {
     context: EvaluationContext
   ): Promise<{ inspection: FolderInspection; classification: Classification } | null> {
     this.foldersVisited++
-    this.report('folders', folder)
+    this.report('folders', 'Looking through folders', false, folder)
     let inspection: FolderInspection
     try {
       inspection = await inspectFolder(folder, { maxDirectories: context.category === 'noisy' ? 150 : 400 })
@@ -279,6 +285,7 @@ export class ScanEngine {
       title,
       searchTitle: cleanSearchTitle(rawTitle),
       sources: mergeSources(sources, extraSources),
+      category: 'game',
       engine: classification.engine,
       confidence,
       needsReview: pick.ambiguous || pick.best === null,
@@ -293,13 +300,14 @@ export class ScanEngine {
       exeCandidates: pick.candidates,
       sizeBytes: await this.folderSize(folder)
     })
-    this.report('folders', folder)
+    this.report('folders', `Found ${title}`, false, folder)
   }
 
-  private async acceptInstaller(folder: string): Promise<void> {
+  private async acceptInstaller(folder: string, kind: InstallerCandidate['kind']): Promise<void> {
     const key = pathKey(folder)
     if (this.installers.has(key)) return
     this.installers.set(key, {
+      kind,
       path: folder,
       title: cleanDisplayTitle(path.basename(folder)),
       sizeBytes: await this.folderSize(folder)
@@ -390,6 +398,7 @@ export class ScanEngine {
         title,
         searchTitle: cleanSearchTitle(entry.title),
         sources: [entry.source],
+        category: 'game',
         engine: inspection ? classifyFolder(inspection, { category: 'games', directChildOfRoot: false }).engine : 'unknown',
         confidence: 100,
         needsReview: false,
@@ -453,15 +462,88 @@ export class ScanEngine {
     if (this.signal?.aborted) throw new ScanCancelledError()
   }
 
-  private report(phase: ScanProgress['phase'], message: string, force = false): void {
+  /**
+   * Overall progress between 0 and 1. Walking the library locations is most of the work,
+   * so it covers 5% to 85%, split evenly between locations and, inside one, between its folders.
+   */
+  private fraction(phase: ScanProgress['phase']): number {
+    switch (phase) {
+      case 'preparing':
+        return 0
+      case 'sources':
+        return 0.03
+      case 'folders': {
+        const roots = Math.max(1, this.input.roots.length)
+        const withinRoot = Math.min(1, Math.max(0, this.rootProgress))
+        return 0.05 + 0.8 * Math.min(1, (this.rootIndex + withinRoot) / roots)
+      }
+      case 'executables':
+        return 0.88
+      default:
+        return 1
+    }
+  }
+
+  private report(phase: ScanProgress['phase'], message: string, force = false, currentPath: string | null = null): void {
     const now = Date.now()
-    if (!force && now - this.lastProgressAt < 120) return
+    if (!force && now - this.lastProgressAt < 100) return
     this.lastProgressAt = now
-    this.onProgress({ phase, message, foldersVisited: this.foldersVisited, gamesFound: this.games.size })
+    this.onProgress({
+      phase,
+      message,
+      currentPath,
+      fraction: this.fraction(phase),
+      foldersVisited: this.foldersVisited,
+      gamesFound: this.games.size
+    })
   }
 }
 
 // ------------------------------------------------------------------ free functions
+
+/** Launchers, emulators and utilities are tools: they get their proper name and leave the game library. */
+function applyToolCatalog(game: ScanCandidate): ScanCandidate {
+  const exePath = game.launch?.type === 'exe' ? game.launch.exePath : (game.exeCandidates[0]?.path ?? null)
+  const tool = matchTool(game.title, game.folderName, exePath)
+  if (!tool) return game
+  return { ...game, category: 'tool', title: tool.name, searchTitle: tool.name, needsReview: false }
+}
+
+function parentKey(target: string): string {
+  return pathKey(isWindowsPath(target) ? path.win32.dirname(target) : path.dirname(target))
+}
+
+/**
+ * The same game found several times next to each other ("Forza Horizon 6 MULTi23",
+ * "Forza Horizon 6 364.933"...) is one game. Keeps the copy that looks most like the
+ * real install: launcher entries first, then the biggest folder.
+ */
+export function mergeDuplicates(games: ScanCandidate[]): ScanCandidate[] {
+  const groups = new Map<string, ScanCandidate[]>()
+  for (const game of games) {
+    const key = `${parentKey(game.installPath)}|${normalizeForComparison(game.searchTitle)}`
+    const group = groups.get(key)
+    if (group) group.push(game)
+    else groups.set(key, [game])
+  }
+
+  const kept: ScanCandidate[] = []
+  for (const group of groups.values()) {
+    if (group.length === 1) {
+      kept.push(group[0]!)
+      continue
+    }
+    const ranked = [...group].sort((a, b) => {
+      const launcherA = a.launch?.type === 'uri' ? 1 : 0
+      const launcherB = b.launch?.type === 'uri' ? 1 : 0
+      return launcherB - launcherA || b.sizeBytes - a.sizeBytes || b.confidence - a.confidence
+    })
+    const best = ranked[0]!
+    for (const other of ranked.slice(1)) best.sources = mergeSources(best.sources, other.sources)
+    kept.push(best)
+  }
+  return kept.sort((a, b) => a.title.localeCompare(b.title))
+}
 
 function mergeSources(a: DetectionSource[], b: DetectionSource[]): DetectionSource[] {
   return [...new Set([...a, ...b])]

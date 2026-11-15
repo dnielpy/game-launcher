@@ -10,6 +10,7 @@ function candidate(installPath: string, exe: string, size = 1000): ScanCandidate
     title: 'Game',
     searchTitle: 'Game',
     sources: ['folder'],
+    category: 'game',
     engine: 'unknown',
     confidence: 80,
     needsReview: false,

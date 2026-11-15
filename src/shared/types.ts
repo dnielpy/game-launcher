@@ -4,6 +4,9 @@ export type DetectionSource = 'folder' | 'registry' | 'shortcut' | 'steam' | 'ep
 /** Game engine inferred from files on disk. */
 export type GameEngine = 'unity' | 'unreal' | 'gamemaker' | 'godot' | 'rpgmaker' | 'unknown'
 
+/** Games go to the library; launchers, emulators and utilities go to Tools. */
+export type GameCategory = 'game' | 'tool'
+
 /** How a library root should be treated by the classifier. */
 export type RootCategory = 'games' | 'noisy'
 
@@ -31,6 +34,35 @@ export interface ExecutableCandidate {
   sizeBytes: number
 }
 
+export type MetadataSource = 'steam' | 'rawg'
+
+/** Information about a game downloaded from a public catalog. */
+export interface GameMetadata {
+  source: MetadataSource
+  externalId: string
+  name: string
+  shortDescription: string | null
+  description: string | null
+  releaseDate: string | null
+  genres: string[]
+  developers: string[]
+  publishers: string[]
+  /** 0 to 100. Share of positive reviews on Steam, or the RAWG rating scaled to 100. */
+  rating: number | null
+  ratingLabel: string | null
+  ratingCount: number | null
+  metacritic: number | null
+  storeUrl: string | null
+  /** Image files cached on disk, served as media://games/<id>/<file>. */
+  coverFile: string | null
+  heroFile: string | null
+  logoFile: string | null
+  screenshotFiles: string[]
+}
+
+/** pending: not looked up yet. matched: found. not_found: nothing matched. skipped: tools are never looked up. */
+export type MetadataStatus = 'pending' | 'matched' | 'not_found' | 'skipped'
+
 export interface Game {
   id: number
   installPath: string
@@ -39,6 +71,7 @@ export interface Game {
   searchTitle: string
   launch: LaunchTarget | null
   sources: DetectionSource[]
+  category: GameCategory
   engine: GameEngine
   confidence: number
   needsReview: boolean
@@ -49,16 +82,22 @@ export interface Game {
   favorite: boolean
   iconPath: string | null
   manualFields: ManualField[]
+  metadata: GameMetadata | null
+  metadataStatus: MetadataStatus
+  playtimeSeconds: number
+  lastPlayedAt: string | null
+  sessionCount: number
   addedAt: string
   updatedAt: string
   lastSeenAt: string
 }
 
 /** Fields the user changed by hand. A rescan never overwrites these. */
-export type ManualField = 'title' | 'exe' | 'args'
+export type ManualField = 'title' | 'exe' | 'args' | 'category' | 'match'
 
 export interface PendingInstaller {
   id: number
+  kind: 'installer' | 'update'
   path: string
   title: string
   sizeBytes: number
@@ -70,8 +109,32 @@ export type ScanPhase = 'preparing' | 'sources' | 'folders' | 'executables' | 's
 export interface ScanProgress {
   phase: ScanPhase
   message: string
+  /** Folder being looked at right now, when there is one. */
+  currentPath: string | null
+  /** 0 to 1. */
+  fraction: number
   foldersVisited: number
   gamesFound: number
+}
+
+export interface MetadataProgress {
+  running: boolean
+  done: number
+  total: number
+  currentTitle: string | null
+}
+
+/** One possible match shown when the user fixes a wrong cover or name. */
+export interface MetadataCandidate {
+  source: MetadataSource
+  externalId: string
+  name: string
+  imageUrl: string | null
+  released: string | null
+}
+
+export interface SettingsState {
+  hasRawgKey: boolean
 }
 
 export interface ScanSummary {
@@ -90,4 +153,5 @@ export interface GamePatch {
   launchArgs?: string
   hidden?: boolean
   favorite?: boolean
+  category?: GameCategory
 }

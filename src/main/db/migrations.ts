@@ -55,5 +55,26 @@ export const MIGRATIONS: { version: number; sql: string }[] = [
         value TEXT NOT NULL
       );
     `
+  },
+  {
+    version: 2,
+    sql: `
+      ALTER TABLE games ADD COLUMN category TEXT NOT NULL DEFAULT 'game' CHECK (category IN ('game', 'tool'));
+      ALTER TABLE games ADD COLUMN metadata TEXT;
+      ALTER TABLE games ADD COLUMN metadata_status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (metadata_status IN ('pending', 'matched', 'not_found', 'skipped'));
+      ALTER TABLE games ADD COLUMN metadata_updated_at TEXT;
+
+      ALTER TABLE pending_installers ADD COLUMN kind TEXT NOT NULL DEFAULT 'installer' CHECK (kind IN ('installer', 'update'));
+
+      CREATE TABLE play_sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+        started_at TEXT NOT NULL,
+        ended_at TEXT NOT NULL,
+        seconds INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE INDEX play_sessions_game ON play_sessions(game_id, started_at);
+    `
   }
 ]

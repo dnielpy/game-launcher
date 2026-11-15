@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, net, shell } from 'electron'
 import path from 'node:path'
 import { IpcChannels } from '@shared/ipc'
 import { openDatabase } from './db/database'
@@ -6,7 +6,11 @@ import { Repository } from './db/repository'
 import { registerIpcHandlers } from './ipc'
 import { initLogger, log } from './logger'
 import { handleMediaProtocol, registerMediaScheme } from './mediaProtocol'
+import { MetadataService } from './metadata/metadataService'
+import { gameMediaDirectory, iconsDirectory } from './services/icons'
+import { PlaytimeTracker } from './services/playtime'
 import { ScanService } from './services/scanService'
+import { SettingsService } from './services/settings'
 
 registerMediaScheme()
 
@@ -66,22 +70,42 @@ if (!hasLock) {
 
     const db = openDatabase(path.join(app.getPath('userData'), 'library.db'))
     const repository = new Repository(db)
+    const settings = new SettingsService(repository)
+
+    // Many games change at once while covers download; the renderer refreshes at most a few times a second.
+    let changeTimer: NodeJS.Timeout | null = null
+    const notifyLibraryChanged = () => {
+      if (changeTimer) return
+      changeTimer = setTimeout(() => {
+        changeTimer = null
+        send(IpcChannels.libraryChanged, { runningGameIds: playtime.runningGameIds() })
+      }, 400)
+    }
+
+    const playtime = new PlaytimeTracker(repository, () => notifyLibraryChanged())
+    const metadata = new MetadataService({
+      repository,
+      mediaDirectory: gameMediaDirectory(),
+      fetch: (url, init) => net.fetch(url, { headers: { 'User-Agent': `GameLauncher/${app.getVersion()}`, ...init?.headers } }),
+      getRawgKey: () => settings.getRawgKey(),
+      onProgress: (progress) => send(IpcChannels.metadataProgress, progress),
+      onGameChanged: notifyLibraryChanged
+    })
     const scanService = new ScanService(repository, path.join(__dirname, 'scanWorker.js'), {
       onProgress: (progress) => send(IpcChannels.scanProgress, progress),
-      onFinished: (result) => send(IpcChannels.scanFinished, result)
+      onFinished: (result) => send(IpcChannels.scanFinished, result),
+      onSaved: () => void metadata.runPending()
     })
 
-    handleMediaProtocol()
-    registerIpcHandlers(repository, scanService)
+    handleMediaProtocol({ icons: iconsDirectory(), games: gameMediaDirectory() })
+    registerIpcHandlers({ repository, scanService, metadata, playtime, settings, notifyLibraryChanged })
     mainWindow = createWindow()
 
-    // First launch: find default locations and scan right away.
-    if (repository.getSetting('firstScanDone') !== '1') {
-      mainWindow.webContents.once('did-finish-load', () => {
-        repository.setSetting('firstScanDone', '1')
-        void scanService.start()
-      })
-    }
+    // Every start rescans (fast after the first time, thanks to the cache) and fills in missing covers.
+    mainWindow.webContents.once('did-finish-load', () => {
+      repository.setSetting('firstScanDone', '1')
+      void scanService.start()
+    })
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) mainWindow = createWindow()
@@ -89,8 +113,10 @@ if (!hasLock) {
 
     app.on('before-quit', () => {
       scanService.cancel()
-      db.close()
+      playtime.stop()
     })
+
+    app.on('will-quit', () => db.close())
   })
 
   app.on('window-all-closed', () => {

@@ -2,11 +2,14 @@ import type {
   DetectionSource,
   ExecutableCandidate,
   Game,
+  GameCategory,
   GameEngine,
+  GameMetadata,
   GameStatus,
   LaunchTarget,
   LibraryRoot,
   ManualField,
+  MetadataStatus,
   PendingInstaller,
   RootCategory,
   RootKind
@@ -23,6 +26,7 @@ interface GameRow {
   search_title: string
   launch: string | null
   sources: string
+  category: string
   engine: string
   confidence: number
   needs_review: number
@@ -33,9 +37,14 @@ interface GameRow {
   favorite: number
   icon_path: string | null
   manual_fields: string
+  metadata: string | null
+  metadata_status: string
   added_at: string
   updated_at: string
   last_seen_at: string
+  playtime_seconds: number
+  last_played_at: string | null
+  session_count: number
 }
 
 interface RootRow {
@@ -46,6 +55,18 @@ interface RootRow {
   enabled: number
   last_scanned_at: string | null
 }
+
+/** Games plus their play statistics, computed from the sessions table. */
+const GAME_SELECT = `
+  SELECT g.*,
+    COALESCE(s.total, 0) AS playtime_seconds,
+    s.last_played AS last_played_at,
+    COALESCE(s.count, 0) AS session_count
+  FROM games g
+  LEFT JOIN (
+    SELECT game_id, SUM(seconds) AS total, MAX(started_at) AS last_played, COUNT(*) AS count
+    FROM play_sessions GROUP BY game_id
+  ) s ON s.game_id = g.id`
 
 function parseJson<T>(value: string | null, fallback: T): T {
   if (!value) return fallback
@@ -65,6 +86,7 @@ function toGame(row: GameRow): Game {
     searchTitle: row.search_title,
     launch: parseJson<LaunchTarget | null>(row.launch, null),
     sources: parseJson<DetectionSource[]>(row.sources, []),
+    category: row.category as GameCategory,
     engine: row.engine as GameEngine,
     confidence: row.confidence,
     needsReview: row.needs_review === 1,
@@ -75,6 +97,11 @@ function toGame(row: GameRow): Game {
     favorite: row.favorite === 1,
     iconPath: row.icon_path,
     manualFields: parseJson<ManualField[]>(row.manual_fields, []),
+    metadata: parseJson<GameMetadata | null>(row.metadata, null),
+    metadataStatus: row.metadata_status as MetadataStatus,
+    playtimeSeconds: row.playtime_seconds,
+    lastPlayedAt: row.last_played_at,
+    sessionCount: row.session_count,
     addedAt: row.added_at,
     updatedAt: row.updated_at,
     lastSeenAt: row.last_seen_at
@@ -85,18 +112,28 @@ function now(): string {
   return new Date().toISOString()
 }
 
+export interface GameUpdate {
+  title?: string
+  launch?: LaunchTarget
+  hidden?: boolean
+  favorite?: boolean
+  category?: GameCategory
+  manualFields?: ManualField[]
+  needsReview?: boolean
+}
+
 export class Repository {
   constructor(private readonly db: Db) {}
 
   // ------------------------------------------------------------------ games
 
   listGames(): Game[] {
-    const rows = this.db.prepare('SELECT * FROM games ORDER BY title COLLATE NOCASE').all() as GameRow[]
+    const rows = this.db.prepare(`${GAME_SELECT} ORDER BY g.title COLLATE NOCASE`).all() as GameRow[]
     return rows.map(toGame)
   }
 
   getGame(id: number): Game | null {
-    const row = this.db.prepare('SELECT * FROM games WHERE id = ?').get(id) as GameRow | undefined
+    const row = this.db.prepare(`${GAME_SELECT} WHERE g.id = ?`).get(id) as GameRow | undefined
     return row ? toGame(row) : null
   }
 
@@ -120,16 +157,16 @@ export class Repository {
     const timestamp = now()
     const result = this.db
       .prepare(
-        `INSERT INTO games (install_path, folder_name, title, search_title, launch, sources, engine, confidence,
-          needs_review, exe_candidates, size_bytes, status, added_at, updated_at, last_seen_at)
-         VALUES (@installPath, @folderName, @title, @searchTitle, @launch, @sources, @engine, @confidence,
-          @needsReview, @exeCandidates, @sizeBytes, 'installed', @timestamp, @timestamp, @timestamp)`
+        `INSERT INTO games (install_path, folder_name, title, search_title, launch, sources, category, engine, confidence,
+          needs_review, exe_candidates, size_bytes, status, metadata_status, added_at, updated_at, last_seen_at)
+         VALUES (@installPath, @folderName, @title, @searchTitle, @launch, @sources, @category, @engine, @confidence,
+          @needsReview, @exeCandidates, @sizeBytes, 'installed', @metadataStatus, @timestamp, @timestamp, @timestamp)`
       )
-      .run({ ...this.candidateParams(candidate), timestamp })
+      .run({ ...this.candidateParams(candidate), metadataStatus: candidate.category === 'tool' ? 'skipped' : 'pending', timestamp })
     return Number(result.lastInsertRowid)
   }
 
-  /** Refreshes detected data. Fields the user edited by hand are left alone. */
+  /** Refreshes detected data. Fields the user edited by hand, and names that came from a metadata match, are kept. */
   applyScanResult(id: number, candidate: ScanCandidate): void {
     const current = this.getGame(id)
     if (!current) return
@@ -148,19 +185,31 @@ export class Repository {
     }
 
     const params = this.candidateParams(candidate)
+    const category = manual.has('category') ? current.category : candidate.category
+    const keepTitle = manual.has('title') || (current.metadataStatus === 'matched' && category === 'game')
+    const searchTitleChanged = current.searchTitle !== candidate.searchTitle && !manual.has('match')
+
+    let metadataStatus: MetadataStatus = current.metadataStatus
+    if (category === 'tool') metadataStatus = 'skipped'
+    else if (current.metadataStatus === 'skipped') metadataStatus = 'pending'
+    // A better cleaned name deserves a new lookup when the old one found nothing.
+    else if (current.metadataStatus === 'not_found' && searchTitleChanged) metadataStatus = 'pending'
+
     this.db
       .prepare(
         `UPDATE games SET install_path = @installPath, folder_name = @folderName, title = @title,
-          search_title = @searchTitle, launch = @launch, sources = @sources, engine = @engine, confidence = @confidence,
-          needs_review = @needsReview, exe_candidates = @exeCandidates, size_bytes = @sizeBytes, status = 'installed',
-          updated_at = @timestamp, last_seen_at = @timestamp
+          search_title = @searchTitle, launch = @launch, sources = @sources, category = @category, engine = @engine,
+          confidence = @confidence, needs_review = @needsReview, exe_candidates = @exeCandidates, size_bytes = @sizeBytes,
+          status = 'installed', metadata_status = @metadataStatus, updated_at = @timestamp, last_seen_at = @timestamp
          WHERE id = @id`
       )
       .run({
         ...params,
-        title: manual.has('title') ? current.title : params.title,
+        title: keepTitle ? current.title : params.title,
+        category,
         launch: JSON.stringify(launch),
         needsReview: manual.has('exe') ? 0 : params.needsReview,
+        metadataStatus,
         timestamp: now(),
         id
       })
@@ -172,17 +221,28 @@ export class Repository {
     for (const id of ids) statement.run(status, timestamp, id)
   }
 
+  deleteGames(ids: number[]): void {
+    const statement = this.db.prepare('DELETE FROM games WHERE id = ?')
+    for (const id of ids) statement.run(id)
+  }
+
   setIcon(id: number, iconPath: string): void {
     this.db.prepare('UPDATE games SET icon_path = ? WHERE id = ?').run(iconPath, id)
   }
 
-  updateGame(id: number, patch: { title?: string; launch?: LaunchTarget; hidden?: boolean; favorite?: boolean; manualFields?: ManualField[]; needsReview?: boolean }): void {
+  updateGame(id: number, patch: GameUpdate): void {
     const current = this.getGame(id)
     if (!current) throw new Error(`Game ${id} not found`)
+    const category = patch.category ?? current.category
+    let metadataStatus = current.metadataStatus
+    if (category === 'tool') metadataStatus = 'skipped'
+    else if (current.metadataStatus === 'skipped') metadataStatus = 'pending'
+
     this.db
       .prepare(
-        `UPDATE games SET title = @title, launch = @launch, hidden = @hidden, favorite = @favorite,
-          manual_fields = @manualFields, needs_review = @needsReview, updated_at = @timestamp WHERE id = @id`
+        `UPDATE games SET title = @title, launch = @launch, hidden = @hidden, favorite = @favorite, category = @category,
+          metadata_status = @metadataStatus, manual_fields = @manualFields, needs_review = @needsReview,
+          updated_at = @timestamp WHERE id = @id`
       )
       .run({
         id,
@@ -190,10 +250,42 @@ export class Repository {
         launch: JSON.stringify(patch.launch ?? current.launch),
         hidden: (patch.hidden ?? current.hidden) ? 1 : 0,
         favorite: (patch.favorite ?? current.favorite) ? 1 : 0,
+        category,
+        metadataStatus,
         manualFields: JSON.stringify(patch.manualFields ?? current.manualFields),
         needsReview: (patch.needsReview ?? current.needsReview) ? 1 : 0,
         timestamp: now()
       })
+  }
+
+  /** Stores a metadata match. The official name becomes the title unless the user renamed the game. */
+  setMetadata(id: number, metadata: GameMetadata | null, status: MetadataStatus, manualMatch = false): void {
+    const current = this.getGame(id)
+    if (!current) return
+    const manual = new Set(current.manualFields)
+    if (manualMatch) manual.add('match')
+    const title = metadata && !manual.has('title') ? metadata.name : current.title
+    this.db
+      .prepare(
+        `UPDATE games SET metadata = @metadata, metadata_status = @status, metadata_updated_at = @timestamp,
+          title = @title, manual_fields = @manualFields WHERE id = @id`
+      )
+      .run({
+        id,
+        metadata: metadata ? JSON.stringify(metadata) : null,
+        status,
+        title,
+        manualFields: JSON.stringify([...manual]),
+        timestamp: now()
+      })
+  }
+
+  gamesNeedingMetadata(): Game[] {
+    return this.listGames().filter((game) => game.metadataStatus === 'pending' && game.category === 'game' && game.status === 'installed')
+  }
+
+  resetNotFound(): void {
+    this.db.prepare(`UPDATE games SET metadata_status = 'pending' WHERE metadata_status = 'not_found' AND category = 'game'`).run()
   }
 
   private candidateParams(candidate: ScanCandidate) {
@@ -204,6 +296,7 @@ export class Repository {
       searchTitle: candidate.searchTitle,
       launch: JSON.stringify(candidate.launch),
       sources: JSON.stringify(candidate.sources),
+      category: candidate.category,
       engine: candidate.engine,
       confidence: candidate.confidence,
       needsReview: candidate.needsReview ? 1 : 0,
@@ -212,27 +305,49 @@ export class Repository {
     }
   }
 
+  // ------------------------------------------------------------------ play sessions
+
+  startSession(gameId: number, startedAt: string): number {
+    const result = this.db
+      .prepare('INSERT INTO play_sessions (game_id, started_at, ended_at, seconds) VALUES (?, ?, ?, 0)')
+      .run(gameId, startedAt, startedAt)
+    return Number(result.lastInsertRowid)
+  }
+
+  /** Called on every poll while the game runs, so a crash loses at most one poll interval. */
+  extendSession(sessionId: number, endedAt: string, seconds: number): void {
+    this.db.prepare('UPDATE play_sessions SET ended_at = ?, seconds = ? WHERE id = ?').run(endedAt, Math.max(0, Math.round(seconds)), sessionId)
+  }
+
   // ------------------------------------------------------------------ installers
 
   listInstallers(): PendingInstaller[] {
-    const rows = this.db.prepare('SELECT * FROM pending_installers ORDER BY title COLLATE NOCASE').all() as {
+    const rows = this.db.prepare('SELECT * FROM pending_installers ORDER BY kind, title COLLATE NOCASE').all() as {
       id: number
+      kind: string
       path: string
       title: string
       size_bytes: number
       detected_at: string
     }[]
-    return rows.map((row) => ({ id: row.id, path: row.path, title: row.title, sizeBytes: row.size_bytes, detectedAt: row.detected_at }))
+    return rows.map((row) => ({
+      id: row.id,
+      kind: row.kind as PendingInstaller['kind'],
+      path: row.path,
+      title: row.title,
+      sizeBytes: row.size_bytes,
+      detectedAt: row.detected_at
+    }))
   }
 
   /** Installers are a snapshot of the last scan, so the table is replaced each time. */
   replaceInstallers(installers: InstallerCandidate[]): void {
     const existing = new Map(this.listInstallers().map((installer) => [installer.path.toLowerCase(), installer.detectedAt]))
-    const insert = this.db.prepare('INSERT INTO pending_installers (path, title, size_bytes, detected_at) VALUES (?, ?, ?, ?)')
+    const insert = this.db.prepare('INSERT INTO pending_installers (kind, path, title, size_bytes, detected_at) VALUES (?, ?, ?, ?, ?)')
     this.db.transaction(() => {
       this.db.prepare('DELETE FROM pending_installers').run()
       for (const installer of installers) {
-        insert.run(installer.path, installer.title, installer.sizeBytes, existing.get(installer.path.toLowerCase()) ?? now())
+        insert.run(installer.kind, installer.path, installer.title, installer.sizeBytes, existing.get(installer.path.toLowerCase()) ?? now())
       }
     })()
   }
@@ -298,6 +413,10 @@ export class Repository {
 
   setSetting(key: string, value: string): void {
     this.db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(key, value)
+  }
+
+  deleteSetting(key: string): void {
+    this.db.prepare('DELETE FROM settings WHERE key = ?').run(key)
   }
 
   /** Runs several writes atomically. */

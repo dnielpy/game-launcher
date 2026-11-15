@@ -12,7 +12,7 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: 'hidden', label: 'Hidden' }
 ]
 
-type Sort = 'name' | 'added' | 'size'
+type Sort = 'name' | 'played' | 'playtime' | 'added' | 'size'
 
 export function LibraryView() {
   const games = useLauncher((state) => state.games)
@@ -23,6 +23,7 @@ export function LibraryView() {
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase()
     return games
+      .filter((game) => game.category === 'game')
       .filter((game) => {
         if (filter === 'hidden') return game.hidden
         if (game.hidden) return false
@@ -34,6 +35,8 @@ export function LibraryView() {
       .filter((game) => needle.length === 0 || game.title.toLowerCase().includes(needle))
       .sort((a, b) => {
         if (sort === 'added') return b.addedAt.localeCompare(a.addedAt)
+        if (sort === 'played') return (b.lastPlayedAt ?? '').localeCompare(a.lastPlayedAt ?? '') || a.title.localeCompare(b.title)
+        if (sort === 'playtime') return b.playtimeSeconds - a.playtimeSeconds || a.title.localeCompare(b.title)
         if (sort === 'size') return b.sizeBytes - a.sizeBytes
         return a.title.localeCompare(b.title)
       })
@@ -58,6 +61,8 @@ export function LibraryView() {
             aria-label="Sort by"
           >
             <option value="name">Name</option>
+            <option value="played">Recently played</option>
+            <option value="playtime">Time played</option>
             <option value="added">Recently added</option>
             <option value="size">Size on disk</option>
           </select>
@@ -80,9 +85,9 @@ export function LibraryView() {
       {visible.length === 0 ? (
         <p className="py-16 text-center text-muted">No games match this view.</p>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-x-4 gap-y-6">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-x-4 gap-y-6">
           {visible.map((game) => (
-            <GameTile key={game.id} game={game} />
+            <GameTile key={game.id} game={game} showPlaytime={sort === 'played' || sort === 'playtime'} />
           ))}
         </div>
       )}

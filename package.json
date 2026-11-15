@@ -1,6 +1,6 @@
 {
   "name": "game-launcher",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Local game library launcher for Windows. Scans your drives, fetches metadata and tracks playtime.",
   "main": "./out/main/index.js",
   "author": "dnielpy",

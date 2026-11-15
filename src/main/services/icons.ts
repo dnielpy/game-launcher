@@ -6,6 +6,10 @@ export function iconsDirectory(): string {
   return path.join(app.getPath('userData'), 'icons')
 }
 
+export function gameMediaDirectory(): string {
+  return path.join(app.getPath('userData'), 'media', 'games')
+}
+
 /** Extracts the exe icon to a PNG file. Returns the file name, or null when Windows has no icon for it. */
 export async function extractIcon(gameId: number, exePath: string): Promise<string | null> {
   try {

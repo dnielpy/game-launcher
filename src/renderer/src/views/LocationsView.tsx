@@ -52,7 +52,7 @@ export function LocationsView() {
     const added = await window.api.roots.add()
     if (!added) return
     await refreshRoots()
-    await startScan()
+    await startScan(true)
   }
 
   return (

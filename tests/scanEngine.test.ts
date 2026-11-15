@@ -29,11 +29,19 @@ beforeAll(async () => {
       'Balatro': { Balatro: layouts.indie('Balatro') },
       'Elden Ring [FitGirl Repack]': layouts.fitgirlInstaller(),
       'Screenshots': { 'shot1.png': 100 },
+      'Forza Horizon 6 MULTi23 ElAmigos versión 354.221': layouts.innoInstalled('ForzaHorizon6'),
+      'Forza Horizon 6 364.933': { 'Forza Horizon 6 update 354.221 - 364.933.exe': 300 * MB },
+      'Forza Horizon 6 375.327': layouts.indie('ForzaHorizon6'),
+      'Some Game Self Extracting': { 'SomeGame_v1.0.exe': 600 * MB },
       'node_modules': { 'evil.exe': 100 }
     },
     'Program Files': {
       'Notepad++': layouts.desktopApp('notepad++'),
       'Hades II': layouts.innoInstalled('Hades2')
+    },
+    Tools: {
+      'MSI Afterburner': { 'MSIAfterburner.exe': 5 * MB, 'unins000.exe': 1, 'unins000.dat': 1, 'RTCore64.dll': 1000 },
+      'yuzu-windows-optimized-pgo- -4176': { 'yuzu.exe': 40 * MB, 'Qt6Core.dll': 1000, 'SDL2.dll': 1000 }
     },
     Elsewhere: {
       'Registry Game': layouts.innoInstalled('RegGame'),
@@ -47,6 +55,7 @@ beforeAll(async () => {
     roots: [
       { path: p('Games'), category: 'games' },
       { path: p('Program Files'), category: 'noisy' },
+      { path: p('Tools'), category: 'games' },
       { path: p('Missing Drive'), category: 'games' }
     ],
     shortcuts: [
@@ -87,16 +96,25 @@ describe('runScan', () => {
       [
         'Balatro',
         'Celeste',
+        'Forza Horizon 6',
         'Game A',
         'Game B',
         'Hades II',
         'Hollow Knight',
+        'MSI Afterburner',
         'Portal 2',
         'Registry Game Deluxe',
         'S.T.A.L.K.E.R. 2',
-        'Shortcut Game'
+        'Shortcut Game',
+        'yuzu'
       ].sort()
     )
+  })
+
+  it('puts launchers, emulators and utilities in tools', () => {
+    expect(game('MSI Afterburner').category).toBe('tool')
+    expect(game('yuzu').category).toBe('tool')
+    expect(game('Hollow Knight').category).toBe('game')
   })
 
   it('uses the inner folder of a doubled folder', () => {
@@ -104,7 +122,12 @@ describe('runScan', () => {
   })
 
   it('reports repack installers separately', () => {
-    expect(output.installers.map((installer) => installer.title)).toEqual(['Elden Ring'])
+    const installers = output.installers.map((installer) => `${installer.kind}:${installer.title}`).sort()
+    expect(installers).toEqual(['installer:Elden Ring', 'installer:Some Game Self Extracting', 'update:Forza Horizon 6'])
+  })
+
+  it('keeps one copy of a game found several times side by side', () => {
+    expect(game('Forza Horizon 6').installPath).toBe(p('Games', 'Forza Horizon 6 MULTi23 ElAmigos versión 354.221'))
   })
 
   it('detects the engine and picks the right executable', () => {

@@ -12,7 +12,8 @@ const api: LauncherApi = {
     list: () => ipcRenderer.invoke(IpcChannels.libraryList),
     update: (id, patch) => ipcRenderer.invoke(IpcChannels.libraryUpdate, id, patch),
     launch: (id) => ipcRenderer.invoke(IpcChannels.libraryLaunch, id),
-    openFolder: (id) => ipcRenderer.invoke(IpcChannels.libraryOpenFolder, id)
+    openFolder: (id) => ipcRenderer.invoke(IpcChannels.libraryOpenFolder, id),
+    onChanged: (listener) => subscribe(IpcChannels.libraryChanged, listener)
   },
   installers: {
     list: () => ipcRenderer.invoke(IpcChannels.installersList)
@@ -29,7 +30,20 @@ const api: LauncherApi = {
     isRunning: () => ipcRenderer.invoke(IpcChannels.scanIsRunning),
     onProgress: (listener) => subscribe(IpcChannels.scanProgress, listener),
     onFinished: (listener) => subscribe(IpcChannels.scanFinished, listener)
-  }
+  },
+  metadata: {
+    search: (query) => ipcRenderer.invoke(IpcChannels.metadataSearch, query),
+    assign: (gameId, source, externalId) => ipcRenderer.invoke(IpcChannels.metadataAssign, gameId, source, externalId),
+    clear: (gameId) => ipcRenderer.invoke(IpcChannels.metadataClear, gameId),
+    refresh: (gameId) => ipcRenderer.invoke(IpcChannels.metadataRefresh, gameId),
+    getProgress: () => ipcRenderer.invoke(IpcChannels.metadataGetProgress),
+    onProgress: (listener) => subscribe(IpcChannels.metadataProgress, listener)
+  },
+  settings: {
+    get: () => ipcRenderer.invoke(IpcChannels.settingsGet),
+    setRawgKey: (key) => ipcRenderer.invoke(IpcChannels.settingsSetRawgKey, key)
+  },
+  openExternal: (url) => ipcRenderer.invoke(IpcChannels.openExternal, url)
 }
 
 contextBridge.exposeInMainWorld('api', api)

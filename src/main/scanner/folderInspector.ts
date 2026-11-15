@@ -2,6 +2,7 @@ import path from 'node:path'
 import type { Dirent } from 'node:fs'
 import { fileSize, readDirSafe } from './fsUtils'
 import { isExcludedExecutable, isExcludedFolderName, isSupportFolderName } from './exclusions'
+import { looksLikeUpdateName } from './nameCleaner'
 
 export interface InspectedExecutable {
   path: string
@@ -27,6 +28,10 @@ export interface FolderInspection {
   archiveFiles: number
   binFiles: string[]
   hasSteamEmulatorConfig: boolean
+  /** Executables that only patch a game ("Foo update 1.2 - 1.3.exe"). Never launch targets. */
+  updateExecutables: string[]
+  /** Number of files seen during the walk, of any type. */
+  fileCount: number
   truncated: boolean
 }
 
@@ -88,6 +93,8 @@ export async function inspectFolder(folder: string, options: InspectOptions = {}
     archiveFiles: 0,
     binFiles: [],
     hasSteamEmulatorConfig: false,
+    updateExecutables: [],
+    fileCount: 0,
     truncated: false
   }
 
@@ -134,6 +141,7 @@ export async function inspectFolder(folder: string, options: InspectOptions = {}
       }
 
       if (!entry.isFile()) continue
+      inspection.fileCount++
       if (current.depth === 0) inspection.rootFiles.push(name)
 
       const extension = path.extname(lowerName)
@@ -145,6 +153,9 @@ export async function inspectFolder(folder: string, options: InspectOptions = {}
         inspection.binFiles.push(lowerName)
       } else if (lowerName === 'steam_emu.ini' || lowerName === 'steam_interfaces.txt') {
         inspection.hasSteamEmulatorConfig = true
+      } else if (extension === '.exe' && looksLikeUpdateName(name)) {
+        // Only updates close to the top describe this folder; deeper ones belong to a subfolder.
+        if (current.depth <= 1) inspection.updateExecutables.push(fullPath)
       } else if (extension === '.exe' && !current.inSupport && !isExcludedExecutable(name)) {
         inspection.executables.push({
           path: fullPath,

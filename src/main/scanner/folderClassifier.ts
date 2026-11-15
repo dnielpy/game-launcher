@@ -1,7 +1,8 @@
 import type { GameEngine, RootCategory } from '@shared/types'
 import type { FolderInspection } from './folderInspector'
+import { looksLikeUpdateName } from './nameCleaner'
 
-export type FolderKind = 'game' | 'installer' | 'none'
+export type FolderKind = 'game' | 'installer' | 'update' | 'none'
 
 export interface ClassificationContext {
   category: RootCategory
@@ -84,7 +85,7 @@ function hasRootDir(inspection: FolderInspection, predicate: (name: string) => b
 /** True for a folder that only holds a repack installer (setup.exe + .bin parts). */
 export function looksLikeInstaller(inspection: FolderInspection): boolean {
   const files = inspection.rootFiles.map((file) => file.toLowerCase())
-  const hasSetup = files.some((file) => /^setup.*\.exe$/.test(file))
+  const hasSetup = files.some((file) => /^(setup|install).*\.exe$/.test(file))
   if (!hasSetup) return false
 
   const fitgirlParts = inspection.binFiles.some((file) => /^fg-\d+\.bin$/.test(file) || /^setup-fitgirl.*\.bin$/.test(file))
@@ -100,7 +101,38 @@ export function looksLikeInstaller(inspection: FolderInspection): boolean {
     hasRootFile(inspection, 'unins000.exe')
 
   if (installedGameMarkers) return false
-  return fitgirlParts || fitgirlExtras || numberedParts
+  if (fitgirlParts || fitgirlExtras || numberedParts) return true
+
+  // Any other release folder: a setup program and nothing that can be launched.
+  const hasSetupProgram = files.some((file) => /^(setup|install)[^\\/]*\.exe$/.test(file))
+  return hasSetupProgram && inspection.executables.length === 0 && !hasRootFile(inspection, 'unityplayer.dll')
+}
+
+/** A folder that only carries a game update: "Foo update 1.2 - 1.3" or nothing but update executables. */
+export function looksLikeUpdatePackage(inspection: FolderInspection): boolean {
+  if (inspection.executables.length > 0) {
+    // An installed game can ship an updater next to it. Only the folder name decides here.
+    return looksLikeUpdateName(inspection.folderName) && inspection.dlls.size === 0 && inspection.archiveFiles === 0
+  }
+  return inspection.updateExecutables.length > 0
+}
+
+/**
+ * One big executable and almost nothing else: a self-extracting installer or update,
+ * not an installed game. Installed games always ship DLLs, data files or folders.
+ */
+export function looksLikeSelfExtractingPackage(inspection: FolderInspection): boolean {
+  if (inspection.executables.length !== 1) return false
+  const exe = inspection.executables[0]!
+  if (exe.depth !== 0) return false
+  const meaningfulDirs = inspection.rootDirs.filter((dir) => !/^(md5|_redist|_commonredist|redist|crack|fix)$/i.test(dir))
+  return (
+    inspection.dlls.size === 0 &&
+    inspection.archiveFiles === 0 &&
+    meaningfulDirs.length === 0 &&
+    inspection.fileCount <= 4 &&
+    exe.sizeBytes > 50 * 1024 * 1024
+  )
 }
 
 export function detectEngine(inspection: FolderInspection): { engine: GameEngine; signals: Signal[] } {
@@ -158,7 +190,11 @@ export function classifyFolder(inspection: FolderInspection, context: Classifica
   const threshold = THRESHOLDS[context.category]
   const hasExecutables = inspection.executables.length > 0
 
-  if (looksLikeInstaller(inspection)) {
+  if (looksLikeUpdatePackage(inspection)) {
+    return { kind: 'update', score: 0, threshold, engine: 'unknown', signals: [{ id: 'update', points: 0 }], hasExecutables }
+  }
+
+  if (looksLikeInstaller(inspection) || looksLikeSelfExtractingPackage(inspection)) {
     return {
       kind: 'installer',
       score: 0,

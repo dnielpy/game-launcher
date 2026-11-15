@@ -1,21 +1,25 @@
 import { useEffect } from 'react'
-import { GameDetail } from './components/GameDetail'
+import { GameModal } from './components/GameModal'
+import { ScanOverlay } from './components/ScanOverlay'
 import { ScanStatus } from './components/ScanStatus'
 import { Sidebar } from './components/Sidebar'
-import { connectScanEvents, useLauncher } from './store'
+import { connectEvents, useLauncher } from './store'
 import { HomeView } from './views/HomeView'
 import { InstallersView } from './views/InstallersView'
 import { LibraryView } from './views/LibraryView'
 import { LocationsView } from './views/LocationsView'
+import { SettingsView } from './views/SettingsView'
+import { ToolsView } from './views/ToolsView'
 
 export function App() {
   const { view, error, dismissError, refresh, refreshRoots } = useLauncher()
 
   useEffect(() => {
-    const disconnect = connectScanEvents()
+    const disconnect = connectEvents()
     void refresh()
     void refreshRoots()
     void window.api.scan.isRunning().then((running) => running && useLauncher.setState({ scanning: true }))
+    void window.api.metadata.getProgress().then((metadataProgress) => useLauncher.setState({ metadataProgress }))
     return disconnect
   }, [refresh, refreshRoots])
 
@@ -37,11 +41,14 @@ export function App() {
         <main className="min-h-0 flex-1 overflow-y-auto px-8 pt-8">
           {view === 'home' && <HomeView />}
           {view === 'library' && <LibraryView />}
+          {view === 'tools' && <ToolsView />}
           {view === 'installers' && <InstallersView />}
           {view === 'locations' && <LocationsView />}
+          {view === 'settings' && <SettingsView />}
         </main>
       </div>
-      <GameDetail />
+      <GameModal />
+      <ScanOverlay />
     </div>
   )
 }

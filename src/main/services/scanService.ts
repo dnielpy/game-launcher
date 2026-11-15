@@ -15,6 +15,8 @@ import { readShortcuts } from './shortcuts'
 export interface ScanEvents {
   onProgress: (progress: ScanProgress) => void
   onFinished: (result: { summary: ScanSummary | null; error: string | null }) => void
+  /** Called after the library was saved, before icons; starts the metadata lookups. */
+  onSaved: () => void
 }
 
 export class ScanService {
@@ -44,7 +46,7 @@ export class ScanService {
   async start(): Promise<void> {
     if (this.worker) return
     const startedAt = Date.now()
-    this.events.onProgress({ phase: 'preparing', message: 'Looking for game locations', foldersVisited: 0, gamesFound: 0 })
+    this.events.onProgress({ phase: 'preparing', message: 'Looking for game locations', currentPath: null, fraction: 0, foldersVisited: 0, gamesFound: 0 })
 
     try {
       await this.syncDefaultRoots()
@@ -112,7 +114,14 @@ export class ScanService {
   }
 
   private async persist(output: ScanOutput, startedAt: number): Promise<ScanSummary> {
-    this.events.onProgress({ phase: 'saving', message: 'Saving library', foldersVisited: output.foldersVisited, gamesFound: output.games.length })
+    this.events.onProgress({
+      phase: 'saving',
+      message: 'Saving your library',
+      currentPath: null,
+      fraction: 0.95,
+      foldersVisited: output.foldersVisited,
+      gamesFound: output.games.length
+    })
 
     const reachableDrives = new Set<string>()
     const isLocationReachable = (installPath: string): boolean => {
@@ -126,16 +135,27 @@ export class ScanService {
     const plan = reconcile(this.repository.storedGamesForReconcile(), output.games, isLocationReachable)
     const newIds: number[] = []
 
+    // A game whose folder is still on disk but that the scanner no longer accepts (an update
+    // package, a duplicate copy, an older bad detection) is removed, unless it has history.
+    const gamesById = new Map(this.repository.listGames().map((game) => [game.id, game]))
+    const rejected = plan.missing.filter((id) => {
+      const game = gamesById.get(id)
+      return game !== undefined && game.playtimeSeconds === 0 && game.manualFields.length === 0 && !game.favorite && existsSync(game.installPath)
+    })
+    const missing = plan.missing.filter((id) => !rejected.includes(id))
+
     this.repository.transaction(() => {
       for (const candidate of plan.inserts) newIds.push(this.repository.insertGame(candidate))
       for (const { id, candidate } of [...plan.updates, ...plan.relinks]) this.repository.applyScanResult(id, candidate)
-      this.repository.setStatus(plan.missing, 'missing')
+      this.repository.deleteGames(rejected)
+      this.repository.setStatus(missing, 'missing')
       this.repository.setStatus(plan.unavailable, 'unavailable')
       this.repository.replaceInstallers(output.installers)
       this.repository.saveScanCache(output.cache)
       this.repository.markRootsScanned(output.reachableRoots)
     })
 
+    this.events.onSaved()
     await this.extractMissingIcons(newIds)
 
     for (const error of output.errors) log.warn(`Scan issue at ${error.path}: ${error.message}`)
@@ -144,7 +164,7 @@ export class ScanService {
       added: plan.inserts.length,
       updated: plan.updates.length,
       relinked: plan.relinks.length,
-      missing: plan.missing.length,
+      missing: missing.length,
       installers: output.installers.length,
       errors: output.errors.length,
       durationMs: Date.now() - startedAt
@@ -162,7 +182,14 @@ export class ScanService {
       if (iconFile) this.repository.setIcon(game.id, iconFile)
       done++
       if (done % 10 === 0) {
-        this.events.onProgress({ phase: 'icons', message: `Loading icons (${done}/${targets.length})`, foldersVisited: 0, gamesFound: targets.length })
+        this.events.onProgress({
+          phase: 'icons',
+          message: `Loading icons (${done}/${targets.length})`,
+          currentPath: null,
+          fraction: 0.95 + 0.05 * (done / targets.length),
+          foldersVisited: 0,
+          gamesFound: targets.length
+        })
       }
     }
   }

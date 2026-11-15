@@ -1,12 +1,26 @@
-import { BrowserWindow, dialog, ipcMain } from 'electron'
+import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import path from 'node:path'
 import { z } from 'zod'
 import { IpcChannels } from '@shared/ipc'
 import type { GamePatch, ManualField } from '@shared/types'
 import type { Repository } from './db/repository'
+import type { MetadataService } from './metadata/metadataService'
 import { isDirectory } from './scanner/fsUtils'
 import { launchGame, openGameFolder } from './services/launcher'
+import type { PlaytimeTracker } from './services/playtime'
 import type { ScanService } from './services/scanService'
+import type { SettingsService } from './services/settings'
+
+export interface IpcServices {
+  repository: Repository
+  scanService: ScanService
+  metadata: MetadataService
+  playtime: PlaytimeTracker
+  settings: SettingsService
+  notifyLibraryChanged: () => void
+}
+
+const ALLOWED_EXTERNAL_HOSTS = ['store.steampowered.com', 'rawg.io', 'www.rawg.io']
 
 const idSchema = z.number().int().positive()
 const patchSchema = z
@@ -15,11 +29,17 @@ const patchSchema = z
     exePath: z.string().min(1).optional(),
     launchArgs: z.string().max(2000).optional(),
     hidden: z.boolean().optional(),
-    favorite: z.boolean().optional()
+    favorite: z.boolean().optional(),
+    category: z.enum(['game', 'tool']).optional()
   })
   .strict()
 
-export function registerIpcHandlers(repository: Repository, scanService: ScanService): void {
+const sourceSchema = z.enum(['steam', 'rawg'])
+const externalIdSchema = z.string().regex(/^\d{1,12}$/)
+
+export function registerIpcHandlers(services: IpcServices): void {
+  const { repository, scanService, metadata, playtime, settings } = services
+
   ipcMain.handle(IpcChannels.libraryList, () => repository.listGames())
 
   ipcMain.handle(IpcChannels.libraryUpdate, (_event, rawId: unknown, rawPatch: unknown) => {
@@ -32,6 +52,7 @@ export function registerIpcHandlers(repository: Repository, scanService: ScanSer
     let launch = game.launch ?? undefined
 
     if (patch.title !== undefined) manualFields.add('title')
+    if (patch.category !== undefined) manualFields.add('category')
 
     if (patch.exePath !== undefined) {
       // Only executables the scanner found for this game can be picked, never an arbitrary path.
@@ -57,9 +78,11 @@ export function registerIpcHandlers(repository: Repository, scanService: ScanSer
       launch,
       hidden: patch.hidden,
       favorite: patch.favorite,
+      category: patch.category,
       manualFields: [...manualFields],
       needsReview: patch.exePath !== undefined ? false : undefined
     })
+    if (patch.category === 'game') void metadata.runPending()
     return repository.getGame(id)
   })
 
@@ -67,6 +90,7 @@ export function registerIpcHandlers(repository: Repository, scanService: ScanSer
     const game = repository.getGame(idSchema.parse(rawId))
     if (!game) throw new Error('Game not found')
     await launchGame(game)
+    playtime.track(game)
   })
 
   ipcMain.handle(IpcChannels.libraryOpenFolder, async (_event, rawId: unknown) => {
@@ -97,6 +121,47 @@ export function registerIpcHandlers(repository: Repository, scanService: ScanSer
 
   ipcMain.handle(IpcChannels.rootsSetEnabled, (_event, rawId: unknown, rawEnabled: unknown) => {
     repository.setRootEnabled(idSchema.parse(rawId), z.boolean().parse(rawEnabled))
+  })
+
+  ipcMain.handle(IpcChannels.metadataSearch, (_event, rawQuery: unknown) => metadata.search(z.string().max(200).parse(rawQuery)))
+
+  ipcMain.handle(IpcChannels.metadataAssign, async (_event, rawId: unknown, rawSource: unknown, rawExternalId: unknown) => {
+    const id = idSchema.parse(rawId)
+    await metadata.assign(id, sourceSchema.parse(rawSource), externalIdSchema.parse(rawExternalId))
+    return repository.getGame(id)
+  })
+
+  ipcMain.handle(IpcChannels.metadataClear, (_event, rawId: unknown) => {
+    const id = idSchema.parse(rawId)
+    metadata.clear(id)
+    return repository.getGame(id)
+  })
+
+  ipcMain.handle(IpcChannels.metadataRefresh, async (_event, rawId: unknown) => {
+    const id = idSchema.parse(rawId)
+    await metadata.refresh(id)
+    return repository.getGame(id)
+  })
+
+  ipcMain.handle(IpcChannels.metadataGetProgress, () => metadata.getProgress())
+
+  ipcMain.handle(IpcChannels.settingsGet, () => ({ hasRawgKey: settings.getRawgKey() !== null }))
+
+  ipcMain.handle(IpcChannels.settingsSetRawgKey, (_event, rawKey: unknown) => {
+    const key = z.string().max(100).nullable().parse(rawKey)
+    settings.setRawgKey(key)
+    if (key) {
+      // Games Steam did not know get a second chance with RAWG.
+      repository.resetNotFound()
+      void metadata.runPending()
+    }
+    return { hasRawgKey: settings.getRawgKey() !== null }
+  })
+
+  ipcMain.handle(IpcChannels.openExternal, async (_event, rawUrl: unknown) => {
+    const url = new URL(z.string().url().parse(rawUrl))
+    if (url.protocol !== 'https:' || !ALLOWED_EXTERNAL_HOSTS.includes(url.hostname)) throw new Error('That link cannot be opened')
+    await shell.openExternal(url.toString())
   })
 
   ipcMain.handle(IpcChannels.scanStart, () => {
