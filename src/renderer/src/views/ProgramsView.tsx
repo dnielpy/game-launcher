@@ -17,7 +17,7 @@ export function EmulatorsView() {
   }
 
   return (
-    <div className="flex max-w-3xl flex-col gap-6 pb-10">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 pb-10">
       <div className="flex items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl font-semibold">Emulators</h1>
@@ -36,7 +36,7 @@ export function ToolsView() {
   const games = useLauncher((state) => state.games)
   const tools = games.filter((game) => game.category === 'tool' && !game.hidden)
   return (
-    <div className="flex max-w-3xl flex-col gap-6 pb-10">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 pb-10">
       <div>
         <h1 className="font-display text-3xl font-semibold">Tools</h1>
         <p className="mt-2 text-muted">Launchers and utilities found next to your games. Move anything to another section from its Manage tab.</p>

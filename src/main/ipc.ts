@@ -25,6 +25,9 @@ export interface IpcServices {
   notifyLibraryChanged: () => void
 }
 
+/** The only e-mail address the app opens, from the About page. */
+const CONTACT_EMAIL = 'dnielquesada@gmail.com'
+
 const ALLOWED_EXTERNAL_HOSTS = ['store.steampowered.com', 'rawg.io', 'www.rawg.io', 'github.com']
 
 const idSchema = z.number().int().positive()
@@ -200,7 +203,8 @@ export function registerIpcHandlers(services: IpcServices): void {
 
   ipcMain.handle(IpcChannels.openExternal, async (_event, rawUrl: unknown) => {
     const url = new URL(z.string().url().parse(rawUrl))
-    if (url.protocol !== 'https:' || !ALLOWED_EXTERNAL_HOSTS.includes(url.hostname)) throw new Error('That link cannot be opened')
+    const isContactMail = url.protocol === 'mailto:' && url.pathname === CONTACT_EMAIL
+    if (!isContactMail && (url.protocol !== 'https:' || !ALLOWED_EXTERNAL_HOSTS.includes(url.hostname))) throw new Error('That link cannot be opened')
     await shell.openExternal(url.toString())
   })
 

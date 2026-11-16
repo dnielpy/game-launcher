@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { Game, LibraryRoot, MetadataProgress, PendingInstaller, ScanProgress, ScanSummary, UpdateStatus } from '@shared/types'
 
 export type View = 'home' | 'library' | 'emulators' | 'tools' | 'settings'
+export type SettingsModule = 'updates' | 'locations' | 'covers' | 'about'
 
 interface LauncherState {
   view: View
@@ -21,7 +22,10 @@ interface LauncherState {
   update: UpdateStatus | null
   error: string | null
   loaded: boolean
+  /** Settings module open right now; null shows the list of modules. */
+  settingsModule: SettingsModule | null
   setView: (view: View) => void
+  openSettings: (module: SettingsModule | null) => void
   select: (id: number | null) => void
   refresh: () => Promise<void>
   refreshRoots: () => Promise<void>
@@ -49,7 +53,10 @@ export const useLauncher = create<LauncherState>((set, get) => ({
   error: null,
   loaded: false,
 
-  setView: (view) => set({ view }),
+  settingsModule: null,
+  // Going to a section from the sidebar always starts at its top level.
+  setView: (view) => set({ view, settingsModule: null }),
+  openSettings: (settingsModule) => set({ view: 'settings', settingsModule }),
   select: (selectedGameId) => set({ selectedGameId }),
 
   refresh: async () => {

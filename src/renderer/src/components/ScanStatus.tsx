@@ -2,12 +2,12 @@ import { useLauncher } from '../store'
 
 /** Header status: background scans, cover downloads and a pending app update. */
 export function ScanStatus() {
-  const { scanning, progress, metadataProgress, lastSummary, startScan, overlayVisible, update, setView } = useLauncher()
+  const { scanning, progress, metadataProgress, lastSummary, startScan, overlayVisible, update, openSettings } = useLauncher()
   const fetching = metadataProgress?.running === true
   const updateReady = update?.state === 'available' || update?.state === 'downloaded'
 
   const updateButton = updateReady ? (
-    <button type="button" onClick={() => setView('settings')} className="rounded-md bg-accent/20 px-3 py-1.5 text-sm text-accent-bright hover:bg-accent/30">
+    <button type="button" onClick={() => openSettings('updates')} className="rounded-md bg-accent/20 px-3 py-1.5 text-sm text-accent-bright hover:bg-accent/30">
       Update to {update!.latest?.version}
     </button>
   ) : null
