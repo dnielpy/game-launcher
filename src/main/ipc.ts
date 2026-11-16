@@ -105,8 +105,14 @@ export function registerIpcHandlers(services: IpcServices): void {
   ipcMain.handle(IpcChannels.libraryLaunch, async (_event, rawId: unknown) => {
     const game = repository.getGame(idSchema.parse(rawId))
     if (!game) throw new Error('Game not found')
-    await launchGame(game)
-    playtime.track(game)
+    // Watch first: the process list taken here is what "already running before the launch" means.
+    await playtime.track(game)
+    try {
+      await launchGame(game)
+    } catch (error) {
+      playtime.untrack(game.id)
+      throw error
+    }
   })
 
   ipcMain.handle(IpcChannels.libraryOpenFolder, async (_event, rawId: unknown) => {
