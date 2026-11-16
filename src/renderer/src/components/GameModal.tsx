@@ -326,33 +326,39 @@ function ManageTab({ game }: { game: Game }) {
         )}
       </section>
 
-      {game.launch?.type === 'uri' ? (
-        <section className="col-span-2 text-sm text-muted">This game starts through its own launcher.</section>
-      ) : (
-        game.exeCandidates.length > 0 && (
-          <section className="flex flex-col gap-2">
-            <h3 className="text-sm font-semibold">Executable</h3>
-            {game.needsReview && <p className="text-xs text-warn">Several files look like the game. Pick the one that starts it.</p>}
-            <div className="flex flex-col gap-1">
-              {game.exeCandidates.map((candidate) => {
-                const selected = exePath?.toLowerCase() === candidate.path.toLowerCase()
-                return (
-                  <button
-                    key={candidate.path}
-                    type="button"
-                    onClick={() => !selected && void update({ exePath: candidate.path })}
-                    className={`flex items-center justify-between rounded-md px-3 py-2 text-left text-sm ${selected ? 'bg-accent/25 ring-1 ring-accent-bright' : 'bg-canvas hover:bg-raised'}`}
-                    title={candidate.path}
-                  >
-                    <span className="truncate">{fileName(candidate.path)}</span>
-                    <span className="ml-3 shrink-0 text-xs text-muted">{formatBytes(candidate.sizeBytes)}</span>
-                  </button>
-                )
-              })}
-            </div>
-          </section>
-        )
-      )}
+      <section className="flex flex-col gap-2">
+        <h3 className="text-sm font-semibold">What starts the game</h3>
+        {game.launch?.type === 'uri' && <p className="text-xs text-muted">Right now it starts through its own launcher. Pick a file below to start it directly.</p>}
+        {game.needsReview && <p className="text-xs text-warn">Several files look like the game. Pick the one that starts it.</p>}
+        {game.exeCandidates.length > 0 && (
+          <div className="flex flex-col gap-1">
+            {game.exeCandidates.map((candidate) => {
+              const selected = exePath?.toLowerCase() === candidate.path.toLowerCase()
+              return (
+                <button
+                  key={candidate.path}
+                  type="button"
+                  onClick={() => !selected && void update({ exePath: candidate.path })}
+                  className={`flex items-center justify-between rounded-md px-3 py-2 text-left text-sm ${selected ? 'bg-accent/25 ring-1 ring-accent-bright' : 'bg-canvas hover:bg-raised'}`}
+                  title={candidate.path}
+                >
+                  <span className="truncate">{fileName(candidate.path)}</span>
+                  <span className="ml-3 shrink-0 text-xs text-muted">{candidate.sizeBytes > 0 ? formatBytes(candidate.sizeBytes) : ''}</span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={() => void run(() => window.api.library.chooseLaunchFile(game.id))}
+          disabled={busy}
+          className="self-start text-sm font-semibold text-accent-bright underline-offset-4 hover:underline disabled:opacity-40"
+        >
+          Choose another file…
+        </button>
+        <p className="text-xs text-muted">Any file works: an .exe, a .bat or .cmd script, or a shortcut.</p>
+      </section>
 
       {game.launch?.type === 'exe' && (
         <section className="flex flex-col gap-2">

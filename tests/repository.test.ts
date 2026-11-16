@@ -112,6 +112,19 @@ describe.skipIf(!sqliteAvailable)('Repository', () => {
     expect(repository.getGame(detected)!.launch).toMatchObject({ exePath: 'E:\\Emus\\Dolphin\\Dolphin.exe' })
   })
 
+  it('keeps a launch file picked by hand across rescans', () => {
+    const repository = setup()
+    const id = repository.insertGame(candidate())
+    repository.setLaunchFile(id, 'D:\\Juegos\\Forza Horizon 5\\Start.bat', 120)
+    expect(repository.getGame(id)!.launch).toMatchObject({ type: 'exe', exePath: 'D:\\Juegos\\Forza Horizon 5\\Start.bat', workingDir: 'D:\\Juegos\\Forza Horizon 5' })
+
+    repository.applyScanResult(id, candidate())
+    const game = repository.getGame(id)!
+    expect(game.launch).toMatchObject({ exePath: 'D:\\Juegos\\Forza Horizon 5\\Start.bat' })
+    expect(game.exeCandidates[0]!.path).toBe('D:\\Juegos\\Forza Horizon 5\\Start.bat')
+    expect(game.exeCandidates).toHaveLength(2)
+  })
+
   it('stores installer kinds', () => {
     const repository = setup()
     repository.replaceInstallers([{ kind: 'update', path: 'D:\\x', title: 'Forza Horizon 6', sizeBytes: 1 }])

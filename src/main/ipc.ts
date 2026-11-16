@@ -128,6 +128,26 @@ export function registerIpcHandlers(services: IpcServices): void {
     else repository.updateGame(game.id, { hidden: true })
   })
 
+  ipcMain.handle(IpcChannels.libraryChooseLaunchFile, async (event, rawId: unknown) => {
+    const game = repository.getGame(idSchema.parse(rawId))
+    if (!game) throw new Error('Game not found')
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const options = {
+      title: `Choose what starts ${game.title}`,
+      defaultPath: game.installPath,
+      properties: ['openFile' as const],
+      filters: [
+        { name: 'Programs and scripts', extensions: ['exe', 'bat', 'cmd', 'lnk', 'url'] },
+        { name: 'All files', extensions: ['*'] }
+      ]
+    }
+    const result = window ? await dialog.showOpenDialog(window, options) : await dialog.showOpenDialog(options)
+    const filePath = result.filePaths[0]
+    if (result.canceled || !filePath) return null
+    repository.setLaunchFile(game.id, filePath, await fileSize(filePath))
+    return repository.getGame(game.id)
+  })
+
   ipcMain.handle(IpcChannels.emulatorsAdd, async (event) => {
     const window = BrowserWindow.fromWebContents(event.sender)
     const options = {

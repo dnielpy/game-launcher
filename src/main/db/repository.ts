@@ -185,6 +185,14 @@ export class Repository {
     }
 
     const params = this.candidateParams(candidate)
+    // A launch file picked by hand (a .bat, a shortcut) stays in the list even when the scan does not see it.
+    if (manual.has('exe') && launch?.type === 'exe') {
+      const picked = launch.exePath.toLowerCase()
+      if (!candidate.exeCandidates.some((exe) => exe.path.toLowerCase() === picked)) {
+        const previous = current.exeCandidates.find((exe) => exe.path.toLowerCase() === picked)
+        params.exeCandidates = JSON.stringify([previous ?? { path: launch.exePath, score: 100, sizeBytes: 0 }, ...candidate.exeCandidates])
+      }
+    }
     const category = manual.has('category') ? current.category : candidate.category
     const keepTitle = manual.has('title') || (current.metadataStatus === 'matched' && category === 'game')
     const searchTitleChanged = current.searchTitle !== candidate.searchTitle && !manual.has('match')
@@ -250,6 +258,21 @@ export class Repository {
     })
     this.updateGame(id, { manualFields: ['category', 'exe'] })
     return id
+  }
+
+  /** Uses a file the user picked (an .exe, a .bat, a shortcut) to start the game. */
+  setLaunchFile(id: number, filePath: string, sizeBytes: number): void {
+    const game = this.getGame(id)
+    if (!game) throw new Error('Game not found')
+    const known = game.exeCandidates.some((candidate) => candidate.path.toLowerCase() === filePath.toLowerCase())
+    const candidates = known ? game.exeCandidates : [{ path: filePath, score: 100, sizeBytes }, ...game.exeCandidates]
+    this.db.prepare('UPDATE games SET exe_candidates = ? WHERE id = ?').run(JSON.stringify(candidates), id)
+    const workingDir = filePath.replace(/[\\/][^\\/]+$/, '')
+    this.updateGame(id, {
+      launch: { type: 'exe', exePath: filePath, args: game.launch?.type === 'exe' ? game.launch.args : '', workingDir },
+      manualFields: [...new Set([...game.manualFields, 'exe' as const])],
+      needsReview: false
+    })
   }
 
   deleteGames(ids: number[]): void {

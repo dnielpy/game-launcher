@@ -19,6 +19,7 @@ export const IpcChannels = {
   libraryOpenFolder: 'library:open-folder',
   libraryChanged: 'library:changed',
   libraryRemove: 'library:remove',
+  libraryChooseLaunchFile: 'library:choose-launch-file',
   emulatorsAdd: 'emulators:add',
   installersList: 'installers:list',
   rootsList: 'roots:list',
@@ -57,6 +58,8 @@ export interface LauncherApi {
     openFolder(id: number): Promise<void>
     /** Deletes entries added by hand; hides detected ones so the next scan does not bring them back. */
     remove(id: number): Promise<void>
+    /** Opens a file picker in the game folder to choose what starts the game (.exe, .bat, .cmd, a shortcut...). Null when cancelled. */
+    chooseLaunchFile(id: number): Promise<Game | null>
     /** Fires when games change outside the renderer: new covers, finished play sessions. */
     onChanged(listener: (payload: { runningGameIds: number[] }) => void): Unsubscribe
   }

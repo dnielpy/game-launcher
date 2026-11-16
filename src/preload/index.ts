@@ -14,6 +14,7 @@ const api: LauncherApi = {
     launch: (id) => ipcRenderer.invoke(IpcChannels.libraryLaunch, id),
     openFolder: (id) => ipcRenderer.invoke(IpcChannels.libraryOpenFolder, id),
     remove: (id) => ipcRenderer.invoke(IpcChannels.libraryRemove, id),
+    chooseLaunchFile: (id) => ipcRenderer.invoke(IpcChannels.libraryChooseLaunchFile, id),
     onChanged: (listener) => subscribe(IpcChannels.libraryChanged, listener)
   },
   emulators: {
