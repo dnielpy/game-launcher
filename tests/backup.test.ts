@@ -102,15 +102,32 @@ describe.skipIf(!sqliteAvailable)('BackupService', () => {
     await fs.writeFile(path.join(source.dir, 'avatar.png'), 'AVATAR')
     source.profile.avatarFile = path.join(source.dir, 'avatar.png')
 
+    source.repository.addExcludedPath('D:\\Juegos\\Old', 'Old game')
+    source.repository.setRootEnabled(source.repository.upsertRoot('E:\\Games', 'user', 'games'), false)
+    const emulatorId = source.repository.insertGame(candidate({ installPath: 'C:\\Emus\\yuzu', title: 'yuzu', folderName: 'yuzu', category: 'emulator' }))
+    source.repository.setSetting('skin', 'cinema')
+    source.repository.setSetting('emulation.switch.enabled', '1')
+    source.repository.setSetting('emulation.switch.emulator', String(emulatorId))
+    source.repository.setSetting('rawgApiKey', 'plain:secret')
+
     const file = path.join(source.dir, 'backup.orus')
     const exported = await source.service.export(file)
-    expect(exported).toMatchObject({ games: 1, sessions: 1, images: 2 })
+    expect(exported).toMatchObject({ games: 2, sessions: 1, images: 2 })
+    expect(await source.service.verify(file)).toEqual({ games: 2, sessions: 1, files: 4 })
 
     // Another PC: different ids, so the new game must get its own image folder.
     const target = environment('target')
     target.repository.insertGame(candidate({ installPath: 'C:\\Other', title: 'Other', folderName: 'Other' }))
     const summary = await target.service.import(file)
-    expect(summary).toMatchObject({ gamesAdded: 1, gamesMerged: 0, sessionsAdded: 1, imagesRestored: 2, profileRestored: true })
+    expect(summary).toMatchObject({ gamesAdded: 2, gamesMerged: 0, sessionsAdded: 1, imagesRestored: 2, profileRestored: true })
+    expect(target.repository.listExcludedPaths()).toMatchObject([{ path: 'D:\\Juegos\\Old', label: 'Old game' }])
+    expect(target.repository.listRoots()).toMatchObject([{ path: 'E:\\Games', kind: 'user', enabled: false }])
+    expect(target.repository.getSetting('skin')).toBe('cinema')
+    expect(target.repository.getSetting('emulation.switch.enabled')).toBe('1')
+    const newEmulator = target.repository.findGameByPath('C:\\Emus\\yuzu')!
+    expect(target.repository.getSetting('emulation.switch.emulator')).toBe(String(newEmulator.id))
+    // API keys never travel in a backup.
+    expect(target.repository.getSetting('rawgApiKey')).toBeNull()
 
     const imported = target.repository.findGameByPath('D:\\Juegos\\Hades')!
     expect(imported.id).not.toBe(id)
@@ -163,5 +180,24 @@ describe.skipIf(!sqliteAvailable)('BackupService', () => {
     const bogus = path.join(target.dir, 'bogus.orus')
     await fs.writeFile(bogus, 'nope')
     await expect(target.service.import(bogus)).rejects.toThrow('not an Orus data file')
+  })
+
+  it('verify catches a damaged backup, and wipeAll leaves an empty library', async () => {
+    const source = environment('source')
+    const id = source.repository.insertGame(candidate())
+    await fs.mkdir(path.join(source.directories.games, String(id)), { recursive: true })
+    await fs.writeFile(path.join(source.directories.games, String(id), 'cover.jpg'), 'COVER')
+    const file = path.join(source.dir, 'backup.orus')
+    await source.service.export(file)
+    const bytes = await fs.readFile(file)
+    await fs.writeFile(file, bytes.subarray(0, bytes.length - 2))
+    await expect(source.service.verify(file)).rejects.toThrow()
+
+    source.repository.setSetting('skin', 'mosaic')
+    source.repository.addExcludedPath('X:\\a')
+    source.repository.wipeAll()
+    expect(source.repository.listGames()).toEqual([])
+    expect(source.repository.listExcludedPaths()).toEqual([])
+    expect(source.repository.getSetting('skin')).toBeNull()
   })
 })

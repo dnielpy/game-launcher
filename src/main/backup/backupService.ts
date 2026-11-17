@@ -19,6 +19,17 @@ export interface BackupDirectories {
   icons: string
 }
 
+/** Preferences that travel with a backup. API keys stay out on purpose. */
+export const BACKED_UP_SETTINGS = ['skin', 'scanMode', 'emulation.switch.enabled', 'emulation.switch.emulator']
+/** Settings whose value is a game id, renumbered on import. */
+const GAME_ID_SETTINGS = new Set(['emulation.switch.emulator'])
+
+export interface BackupCheck {
+  games: number
+  sessions: number
+  files: number
+}
+
 async function listFiles(directory: string): Promise<string[]> {
   try {
     const entries = await fs.readdir(directory, { withFileTypes: true })
@@ -41,10 +52,13 @@ export class BackupService {
     const games: BackupGame[] = this.repository.listGames().map(({ playtimeSeconds: _p, lastPlayedAt: _l, sessionCount: _s, ...game }) => game)
     const sessions = this.repository.listSessions()
     const profile = this.profile.get()
-    const roots = this.repository
-      .listRoots()
-      .filter((root) => root.kind === 'user')
-      .map((root) => ({ path: root.path, category: root.category }))
+    const roots = this.repository.listRoots().map((root) => ({ path: root.path, category: root.category, kind: root.kind, enabled: root.enabled }))
+    const excluded = this.repository.listExcludedPaths().map((entry) => ({ path: entry.path, label: entry.label }))
+    const settings: Record<string, string> = {}
+    for (const key of BACKED_UP_SETTINGS) {
+      const value = this.repository.getSetting(key)
+      if (value !== null) settings[key] = value
+    }
 
     const sources: ContainerSource[] = []
     for (const game of games) {
@@ -63,6 +77,8 @@ export class BackupService {
       exportedAt: new Date().toISOString(),
       profile: profile.created ? { name: profile.name, avatar: avatar ? 'profile/avatar.png' : null } : null,
       roots,
+      excluded,
+      settings,
       games,
       sessions
     }
@@ -73,6 +89,25 @@ export class BackupService {
       sessions: sessions.length,
       images: written.entries.filter((entry) => entry.name.startsWith('games/')).length,
       sizeBytes: written.sizeBytes
+    }
+  }
+
+  /**
+   * Opens a backup and reads every part of it back: the manifest must be valid and every image readable.
+   * Used before anything is deleted, so a reset never loses data.
+   */
+  async verify(file: string): Promise<BackupCheck> {
+    const container = await openContainer(file)
+    try {
+      const parsed = backupManifestSchema.safeParse(container.manifest)
+      if (!parsed.success) throw new Error('The backup could not be read back')
+      for (const entry of container.entries) {
+        const content = await container.read(entry.name)
+        if (!content || content.length !== entry.size) throw new Error(`The backup is missing ${entry.name}`)
+      }
+      return { games: parsed.data.games.length, sessions: parsed.data.sessions.length, files: container.entries.length }
+    } finally {
+      await container.close()
     }
   }
 
@@ -92,6 +127,7 @@ export class BackupService {
       let gamesMerged = 0
       let sessionsAdded = 0
 
+      const idMap = new Map<number, number>()
       this.repository.transaction(() => {
         for (const game of manifest.games) {
           const existing = this.repository.findGameByPath(game.installPath)
@@ -106,9 +142,25 @@ export class BackupService {
             gamesAdded++
             mediaJobs.push({ oldId: game.id, newId, icon: game.iconPath })
           }
+          idMap.set(game.id, newId)
           sessionsAdded += this.repository.addSessions(newId, sessionsByGame.get(game.id) ?? [])
         }
-        for (const root of manifest.roots) this.repository.upsertRoot(root.path, 'user', root.category)
+        const knownRoots = new Set(this.repository.listRoots().map((root) => root.path.toLowerCase()))
+        for (const root of manifest.roots) {
+          if (knownRoots.has(root.path.toLowerCase())) continue
+          this.repository.setRootEnabled(this.repository.upsertRoot(root.path, root.kind, root.category), root.enabled)
+        }
+        for (const entry of manifest.excluded) this.repository.addExcludedPath(entry.path, entry.label)
+        // Preferences fill in what this library has not set; ids of games are renumbered.
+        for (const [key, value] of Object.entries(manifest.settings)) {
+          if (!BACKED_UP_SETTINGS.includes(key) || this.repository.getSetting(key) !== null) continue
+          if (GAME_ID_SETTINGS.has(key)) {
+            const mapped = idMap.get(Number(value))
+            if (mapped !== undefined) this.repository.setSetting(key, String(mapped))
+          } else {
+            this.repository.setSetting(key, value)
+          }
+        }
       })
 
       let imagesRestored = 0

@@ -74,7 +74,19 @@ export const backupManifestSchema = z.object({
   appVersion: z.string().default('unknown'),
   exportedAt: z.string(),
   profile: z.object({ name: z.string().max(80), avatar: z.string().nullable().default(null) }).nullable().default(null),
-  roots: z.array(z.object({ path: z.string().min(1), category: z.enum(['games', 'noisy']) })).default([]),
+  roots: z
+    .array(
+      z.object({
+        path: z.string().min(1),
+        category: z.enum(['games', 'noisy']),
+        kind: z.enum(['auto', 'user']).default('user'),
+        enabled: z.boolean().default(true)
+      })
+    )
+    .default([]),
+  excluded: z.array(z.object({ path: z.string().min(1), label: z.string().nullable().default(null) })).default([]),
+  /** Preferences such as the skin, the scan mode and the consoles turned on. */
+  settings: z.record(z.string().max(100), z.string().max(1000)).default({}),
   games: z.array(backupGameSchema),
   sessions: z.array(backupSessionSchema).default([])
 })

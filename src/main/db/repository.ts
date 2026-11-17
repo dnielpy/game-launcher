@@ -620,6 +620,15 @@ export class Repository {
     this.db.prepare('DELETE FROM settings WHERE key = ?').run(key)
   }
 
+  /** Deletes everything Orus stored: games, play sessions, locations, exclusions, settings and caches. */
+  wipeAll(): void {
+    this.transaction(() => {
+      for (const table of ['play_sessions', 'games', 'library_roots', 'excluded_paths', 'pending_installers', 'scan_cache', 'settings']) {
+        this.db.prepare(`DELETE FROM ${table}`).run()
+      }
+    })
+  }
+
   /** Runs several writes atomically. */
   transaction(work: () => void): void {
     this.db.transaction(work)()

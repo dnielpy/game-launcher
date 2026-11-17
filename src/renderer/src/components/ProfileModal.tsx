@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { formatHoursShort } from '../format'
 import { computeProfileStats, formatTotalHours } from '@shared/profileStats'
+import { startOver } from '../resetApp'
 import { errorMessage, useLauncher } from '../store'
 import { Avatar } from './Avatar'
 import { Cover } from './GameArt'
@@ -31,12 +32,6 @@ function ProfileForm({ onDone }: { onDone: () => void }) {
   const save = () =>
     run(async () => {
       setProfile(await window.api.profile.save(name))
-      onDone()
-    })
-  const remove = () =>
-    run(async () => {
-      setProfile(await window.api.profile.remove())
-      setName('')
       onDone()
     })
 
@@ -93,8 +88,8 @@ function ProfileForm({ onDone }: { onDone: () => void }) {
         )}
       </div>
       {editing && (
-        <button type="button" onClick={() => void remove()} disabled={busy} className="text-xs text-muted hover:text-danger">
-          Delete profile (your play history stays)
+        <button type="button" onClick={() => void startOver()} disabled={busy} className="text-xs text-muted hover:text-danger">
+          Delete profile and start over…
         </button>
       )}
     </form>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { ExportSummary, ImportSummary } from '@shared/types'
 import { formatBytes } from '../format'
+import { startOver } from '../resetApp'
 import { errorMessage, useLauncher } from '../store'
 
 type Result = { kind: 'export'; summary: ExportSummary } | { kind: 'import'; summary: ImportSummary }
@@ -70,6 +71,16 @@ export function DataSection() {
         </div>
         <button type="button" disabled={busy !== null} onClick={() => void importData()} className={action}>
           {busy === 'import' ? 'Importing' : 'Import…'}
+        </button>
+      </div>
+
+      <div className={`${card} mt-3`}>
+        <div className="min-w-0">
+          <h3 className="font-semibold">Delete profile and start over</h3>
+          <p className="text-sm text-muted">Saves and checks a full backup first, then clears Orus and opens the welcome screen again.</p>
+        </div>
+        <button type="button" disabled={busy !== null} onClick={() => void startOver()} className={`${action} hover:!bg-danger hover:!text-white`}>
+          Start over…
         </button>
       </div>
 
