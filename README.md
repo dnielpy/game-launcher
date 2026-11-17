@@ -6,8 +6,11 @@ A local game library for Windows. It finds the games installed on your PC, shows
 
 - **Automatic discovery.** Checks common game folders on every drive (`Games`, `Juegos`, `GOG Games`, `XboxGames`...), `Program Files` with stricter rules, the Windows uninstall registry, desktop and Start menu shortcuts, and Steam and Epic libraries.
 - **Backup and profile.** Export everything (games, hours, covers, details, profile) to one .orus file and import it on another PC. A local profile with your name, photo and play stats needs no account.
+- **Welcome screens.** The first start asks for your name and an optional photo, then whether to scan the whole PC or only the folders you choose, and shows the first scan and cover download. Without internet it tells you to scan again later for covers.
+- **Full screen.** Orus opens full screen; F11 or the buttons in the top bar leave it.
+- **Start over.** Deleting the profile saves a full, verified backup to Documents\\Orus backups first, then clears everything and shows the welcome screens, where the backup can be restored.
 - **Skins.** Orus (the original), Cinema (full-screen art and a shelf of covers, keyboard friendly) and Mosaic (light, tiled Home).
-- **Nintendo Switch games.** Turn it on under Emulated games: .nsp and .xci files show up in the library and start in your emulator (yuzu forks, Ryujinx). Covers and details come from RAWG and SteamGridDB with free keys.
+- **Nintendo Switch games.** Turn it on under Emulated games: .nsp and .xci files show up in the library and start in your emulator (yuzu forks, Ryujinx). Covers and details come from RAWG and SteamGridDB once you add your free keys under *Settings, Covers and game details*.
 - **Your own folders.** Add any folder under *Locations*; turn any location on or off, or exclude a folder. Removing a game from the library excludes its folder so it never comes back.
 - **Engine-aware detection.** Recognizes Unity, Unreal, GameMaker, Godot, RPG Maker and Ren'Py layouts, and tells a game folder apart from a folder that holds several games.
 - **Main executable picking.** Ignores uninstallers, redistributables, crash handlers and anti-cheat helpers. Shortcuts and registry icons anchor the choice; close calls are flagged so you can pick.
@@ -17,8 +20,8 @@ A local game library for Windows. It finds the games installed on your PC, shows
 
 ## Covers, details and play time (0.2)
 
-- **Covers and details** come from the public Steam store (no key needed): vertical box art, hero banner, logo, description, genres, developer, release date, player review score and Metacritic. Images are cached in `%APPDATA%/game-launcher/media`.
-- **RAWG** is the fallback for games that are not on Steam. Add a free key under *Settings*.
+- **Covers and details** come from the public Steam store (no key needed): vertical box art, hero banner, logo, description, genres, developer, release date, player review score and Metacritic. Images are cached in `%APPDATA%/Orus/media`.
+- **RAWG** (descriptions, dates, ratings) and **SteamGridDB** (vertical covers, banners, logos) cover games that are not on Steam. Each user adds their own free keys under *Settings, Covers and game details*; Orus ships with no keys.
 - **Official names**: when a game is matched, the catalog name replaces the folder name (unless you renamed it). Wrong match? *Manage → Search again*.
 - **Tools**: launchers, emulators and utilities (MSI Afterburner, RivaTuner, Steam, yuzu...) go to their own section. Move anything between Tools and the library from *Manage*.
 - **Updates and duplicates**: update packages (`Game update 1.2 - 1.3`) and self-extracting installers are listed under *Not installed*, not as games. Copies of the same game side by side are merged.
