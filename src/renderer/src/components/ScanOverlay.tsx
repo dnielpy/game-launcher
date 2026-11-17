@@ -1,7 +1,7 @@
 import { shortenPath } from '../format'
 import { useLauncher } from '../store'
 
-const PHASE_LABELS = {
+export const PHASE_LABELS = {
   preparing: 'Getting ready',
   sources: 'Reading installed programs and shortcuts',
   folders: 'Looking through your folders',
@@ -11,7 +11,7 @@ const PHASE_LABELS = {
   done: 'Finishing'
 } as const
 
-function ProgressBar({ fraction }: { fraction: number | null }) {
+export function ProgressBar({ fraction }: { fraction: number | null }) {
   return (
     <div className="h-1.5 w-full overflow-hidden rounded-full bg-raised" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={fraction === null ? undefined : Math.round(fraction * 100)}>
       {fraction === null ? (
@@ -25,8 +25,10 @@ function ProgressBar({ fraction }: { fraction: number | null }) {
 
 /** Full-screen card shown while the library is built: first the folder scan, then covers and details. */
 export function ScanOverlay() {
-  const { overlayVisible, scanning, progress, metadataProgress, hideOverlay, cancelScan } = useLauncher()
+  const { overlayVisible, scanning, progress, metadataProgress, hideOverlay, cancelScan, app } = useLauncher()
   const fetchingMetadata = !scanning && metadataProgress?.running === true
+  // The welcome screens show their own progress.
+  if (!app?.onboardingDone) return null
   if (!overlayVisible || (!scanning && !fetchingMetadata)) return null
 
   const title = fetchingMetadata ? 'Getting covers and game details' : 'Looking for your games'

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Game, LibraryRoot, MetadataProgress, PendingInstaller, ProfileState, ScanProgress, ScanSummary, SettingsState, SkinId, UpdateStatus } from '@shared/types'
+import type { AppState, Game, LibraryRoot, MetadataProgress, PendingInstaller, ProfileState, ScanProgress, ScanSummary, SettingsState, SkinId, UpdateStatus } from '@shared/types'
 
 export type View = 'home' | 'library' | 'emulators' | 'tools' | 'settings'
 export type SettingsModule = 'appearance' | 'updates' | 'locations' | 'emulation' | 'covers' | 'data' | 'about'
@@ -32,6 +32,11 @@ interface LauncherState {
   profileOpen: boolean
   skin: SkinId
   settings: SettingsState | null
+  /** Null until loaded from the main process. */
+  app: AppState | null
+  online: boolean
+  /** Set while everything is being backed up and deleted. */
+  resetting: 'saving' | 'restarting' | null
   confirmRequest: ConfirmRequest | null
   /** Shows a confirmation dialog; resolves true when the user agrees. */
   confirm: (request: Omit<ConfirmRequest, 'resolve'>) => Promise<boolean>
@@ -73,6 +78,9 @@ export const useLauncher = create<LauncherState>((set, get) => ({
   profileOpen: false,
   skin: 'orus',
   settings: null,
+  app: null,
+  resetting: null,
+  online: typeof navigator === 'undefined' ? true : navigator.onLine,
   confirmRequest: null,
   confirm: (request) =>
     new Promise<boolean>((resolve) =>
@@ -164,7 +172,19 @@ export function connectEvents(): () => void {
   void window.api.updates.get().then((update) => useLauncher.setState({ update }))
   void window.api.profile.get().then((profile) => useLauncher.setState({ profile }))
   void window.api.settings.get().then((settings) => useLauncher.getState().setSettings(settings))
+  void window.api.app.state().then((app) => useLauncher.setState({ app }))
+  const offFullscreen = window.api.window.onFullscreenChanged((fullscreen) => {
+    const app = useLauncher.getState().app
+    if (app) useLauncher.setState({ app: { ...app, fullscreen } })
+  })
+  const checkOnline = () => void window.api.app.isOnline().then((online) => useLauncher.setState({ online: online && navigator.onLine }))
+  checkOnline()
+  window.addEventListener('online', checkOnline)
+  window.addEventListener('offline', checkOnline)
   return () => {
+    offFullscreen()
+    window.removeEventListener('online', checkOnline)
+    window.removeEventListener('offline', checkOnline)
     offUpdates()
     offProgress()
     offFinished()

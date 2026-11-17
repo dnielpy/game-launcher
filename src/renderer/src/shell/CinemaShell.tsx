@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { OrusMark } from '../components/OrusMark'
 import { ScanStatus } from '../components/ScanStatus'
+import { WindowControls } from '../components/WindowControls'
 import { useLauncher } from '../store'
 import { CinemaHome } from '../views/CinemaHome'
 import { Clock, ErrorBanner, NAV_ITEMS, NavIcon, ProfileButton, SectionContent } from './common'
@@ -68,6 +69,7 @@ export function CinemaShell() {
             <NavIcon path={NAV_ITEMS.find((item) => item.view === 'settings')!.icon} />
           </button>
           <ProfileButton />
+          <WindowControls />
         </div>
       </header>
 

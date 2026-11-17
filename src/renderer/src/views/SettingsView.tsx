@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { AboutSection } from '../components/AboutSection'
 import { HANDHELD_ICON } from '../components/ConsoleIcon'
+import { CoversSection } from '../components/CoversSection'
 import { DataSection } from '../components/DataSection'
 import { ScanCard } from '../components/ScanCard'
 import { EmulationSection } from '../components/EmulationSection'
@@ -45,6 +46,13 @@ const MODULES: ModuleEntry[] = [
     description: 'Find Nintendo Switch games and play them with your emulator',
     icon: HANDHELD_ICON,
     render: () => <EmulationSection />
+  },
+  {
+    id: 'covers',
+    title: 'Covers and game details',
+    description: 'Where box art, banners and ratings come from, and your API keys',
+    icon: 'M4 5h16v14H4zM4 15l4-4 4 4 3-3 5 5',
+    render: () => <CoversSection />
   },
   {
     id: 'data',

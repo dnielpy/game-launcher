@@ -14,6 +14,8 @@ import type {
   ProfileState,
   ScanProgress,
   ScanSummary,
+  AppState,
+  ScanMode,
   SettingsState,
   SkinId,
   UpdateStatus
@@ -65,6 +67,16 @@ export const IpcChannels = {
   settingsGet: 'settings:get',
   settingsSetRawgKey: 'settings:set-rawg-key',
   openExternal: 'app:open-external',
+  appState: 'app:state',
+  appCompleteOnboarding: 'app:complete-onboarding',
+  appIsOnline: 'app:is-online',
+  appResetEverything: 'app:reset-everything',
+  windowMinimize: 'window:minimize',
+  windowToggleFullscreen: 'window:toggle-fullscreen',
+  windowClose: 'window:close',
+  windowFullscreenChanged: 'window:fullscreen-changed',
+  settingsSetScanMode: 'settings:set-scan-mode',
+  dataImportLastBackup: 'data:import-last-backup',
   updatesGet: 'updates:get',
   updatesCheck: 'updates:check',
   updatesDownload: 'updates:download',
@@ -144,6 +156,7 @@ export interface LauncherApi {
     setRawgKey(key: string | null): Promise<SettingsState>
     setSteamGridDbKey(key: string | null): Promise<SettingsState>
     setSkin(skin: SkinId): Promise<SettingsState>
+    setScanMode(mode: ScanMode): Promise<SettingsState>
   }
   updates: {
     get(): Promise<UpdateStatus>
@@ -170,6 +183,24 @@ export interface LauncherApi {
     export(): Promise<ExportSummary | null>
     /** Asks for a file and merges it into this library. Null when cancelled. */
     import(): Promise<ImportSummary | null>
+    /** Restores the backup Orus saved when everything was reset. */
+    importLastBackup(): Promise<ImportSummary | null>
+  }
+  app: {
+    state(): Promise<AppState>
+    completeOnboarding(): Promise<void>
+    isOnline(): Promise<boolean>
+    /**
+     * Saves a full backup to Documents\Orus backups, checks it can be read back, then deletes every game,
+     * hour, cover, setting and the profile, and restarts Orus at the welcome screens.
+     */
+    resetEverything(): Promise<{ backupPath: string }>
+  }
+  window: {
+    minimize(): Promise<void>
+    toggleFullscreen(): Promise<void>
+    close(): Promise<void>
+    onFullscreenChanged(listener: (fullscreen: boolean) => void): Unsubscribe
   }
   openExternal(url: string): Promise<void>
 }

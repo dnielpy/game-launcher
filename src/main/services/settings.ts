@@ -1,10 +1,11 @@
 import { safeStorage } from 'electron'
-import type { SkinId } from '@shared/types'
+import type { ScanMode, SkinId } from '@shared/types'
 import type { Repository } from '../db/repository'
 
 const RAWG_KEY_SETTING = 'rawgApiKey'
 const STEAMGRIDDB_KEY_SETTING = 'steamGridDbApiKey'
 const SKIN_SETTING = 'skin'
+const SCAN_MODE_SETTING = 'scanMode'
 const SKINS: SkinId[] = ['orus', 'cinema', 'mosaic']
 
 /** Stores API keys encrypted with the operating system's credential store when it is available. */
@@ -34,6 +35,14 @@ export class SettingsService {
 
   setSkin(skin: SkinId): void {
     this.repository.setSetting(SKIN_SETTING, skin)
+  }
+
+  getScanMode(): ScanMode {
+    return this.repository.getSetting(SCAN_MODE_SETTING) === 'manual' ? 'manual' : 'auto'
+  }
+
+  setScanMode(mode: ScanMode): void {
+    this.repository.setSetting(SCAN_MODE_SETTING, mode)
   }
 
   private getSecret(setting: string): string | null {

@@ -28,6 +28,8 @@ function createWindow(): BrowserWindow {
     height: 900,
     minWidth: 1024,
     minHeight: 640,
+    // Orus opens full screen, like a console. F11 or the button in the top bar leaves it.
+    fullscreen: true,
     show: false,
     backgroundColor: '#101214',
     autoHideMenuBar: true,
@@ -43,6 +45,14 @@ function createWindow(): BrowserWindow {
   })
 
   window.once('ready-to-show', () => window.show())
+  window.on('enter-full-screen', () => window.webContents.send(IpcChannels.windowFullscreenChanged, true))
+  window.on('leave-full-screen', () => window.webContents.send(IpcChannels.windowFullscreenChanged, false))
+  window.webContents.on('before-input-event', (event, input) => {
+    if (input.type === 'keyDown' && input.key === 'F11') {
+      event.preventDefault()
+      window.setFullScreen(!window.isFullScreen())
+    }
+  })
 
   // External links open in the default browser, never inside the app.
   window.webContents.setWindowOpenHandler(({ url }) => {
@@ -101,11 +111,17 @@ if (!hasLock) {
       onProgress: (progress) => send(IpcChannels.metadataProgress, progress),
       onGameChanged: notifyLibraryChanged
     })
-    const scanService = new ScanService(repository, path.join(__dirname, 'scanWorker.js'), {
-      onProgress: (progress) => send(IpcChannels.scanProgress, progress),
-      onFinished: (result) => send(IpcChannels.scanFinished, result),
-      onSaved: () => void metadata.runPending()
-    }, emulation)
+    const scanService = new ScanService(
+      repository,
+      path.join(__dirname, 'scanWorker.js'),
+      {
+        onProgress: (progress) => send(IpcChannels.scanProgress, progress),
+        onFinished: (result) => send(IpcChannels.scanFinished, result),
+        onSaved: () => void metadata.runPending()
+      },
+      emulation,
+      () => settings.getScanMode()
+    )
 
     const profile = new ProfileService(repository, path.join(app.getPath('userData'), 'profile'))
     const backup = new BackupService(repository, profile, { games: gameMediaDirectory(), icons: iconsDirectory() }, app.getVersion())
@@ -116,10 +132,15 @@ if (!hasLock) {
     updates.startSchedule()
     mainWindow = createWindow()
 
+    // People who used Orus before the welcome screens existed skip them.
+    if (repository.getSetting('onboardingDone') === null && (repository.listGames().length > 0 || profile.get().created)) {
+      repository.setSetting('onboardingDone', '1')
+    }
+
     // Every start rescans (fast after the first time, thanks to the cache) and fills in missing covers.
+    // On the very first start the welcome screens start the scan instead, once the user chose how.
     mainWindow.webContents.once('did-finish-load', () => {
-      repository.setSetting('firstScanDone', '1')
-      void scanService.start()
+      if (repository.getSetting('onboardingDone') === '1') void scanService.start()
     })
 
     app.on('activate', () => {

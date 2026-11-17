@@ -143,10 +143,22 @@ export interface MetadataCandidate {
 
 export type SkinId = 'orus' | 'cinema' | 'mosaic'
 
+/** auto: Orus looks all over the PC. manual: only in the folders the user chose. */
+export type ScanMode = 'auto' | 'manual'
+
 export interface SettingsState {
   hasRawgKey: boolean
   hasSteamGridDbKey: boolean
   skin: SkinId
+  scanMode: ScanMode
+}
+
+export interface AppState {
+  /** The welcome screens were completed (or skipped because a library already existed). */
+  onboardingDone: boolean
+  fullscreen: boolean
+  /** A backup made when everything was reset, offered on the welcome screen. */
+  lastBackupPath: string | null
 }
 
 /** A folder (or file) the scan never looks at. */

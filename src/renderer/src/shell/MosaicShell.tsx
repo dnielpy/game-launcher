@@ -1,5 +1,6 @@
 import { OrusMark } from '../components/OrusMark'
 import { ScanStatus } from '../components/ScanStatus'
+import { WindowControls } from '../components/WindowControls'
 import { useLauncher } from '../store'
 import { MosaicHome } from '../views/MosaicHome'
 import { Clock, ErrorBanner, greeting, NAV_ITEMS, NavIcon, ProfileButton, SectionContent } from './common'
@@ -75,6 +76,7 @@ export function MosaicShell() {
           <div className="ml-auto flex items-center gap-5">
             <ScanStatus />
             <ProfileButton />
+            <WindowControls />
           </div>
         </header>
         <ErrorBanner />

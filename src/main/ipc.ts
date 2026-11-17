@@ -1,5 +1,5 @@
-import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
-import { rmSync } from 'node:fs'
+import { app, BrowserWindow, dialog, ipcMain, net, shell } from 'electron'
+import { existsSync, mkdirSync, rmSync } from 'node:fs'
 import path from 'node:path'
 import { z } from 'zod'
 import { IpcChannels } from '@shared/ipc'
@@ -54,12 +54,18 @@ const patchSchema = z
 const sourceSchema = z.enum(['steam', 'rawg', 'steamgriddb'])
 const platformSchema = z.enum(['switch'])
 const skinSchema = z.enum(['orus', 'cinema', 'mosaic'])
+const scanModeSchema = z.enum(['auto', 'manual'])
 const externalIdSchema = z.string().regex(/^\d{1,12}$/)
 
 export function registerIpcHandlers(services: IpcServices): void {
   const { repository, scanService, metadata, playtime, settings, updates, profile, backup, emulation, notifyLibraryChanged } = services
 
-  const settingsState = () => ({ hasRawgKey: settings.getRawgKey() !== null, hasSteamGridDbKey: settings.getSteamGridDbKey() !== null, skin: settings.getSkin() })
+  const settingsState = () => ({
+    hasRawgKey: settings.getRawgKey() !== null,
+    hasSteamGridDbKey: settings.getSteamGridDbKey() !== null,
+    skin: settings.getSkin(),
+    scanMode: settings.getScanMode()
+  })
 
   /** Removes a game and everything Orus stored for it: sessions, covers and icon. */
   function removeGame(game: Game): void {
@@ -350,6 +356,66 @@ export function registerIpcHandlers(services: IpcServices): void {
     }
     return settingsState()
   })
+
+  ipcMain.handle(IpcChannels.settingsSetScanMode, (_event, rawMode: unknown) => {
+    settings.setScanMode(scanModeSchema.parse(rawMode))
+    return settingsState()
+  })
+
+  ipcMain.handle(IpcChannels.appState, (event) => {
+    const lastBackup = repository.getSetting('lastBackup')
+    return {
+      onboardingDone: repository.getSetting('onboardingDone') === '1',
+      fullscreen: BrowserWindow.fromWebContents(event.sender)?.isFullScreen() ?? false,
+      lastBackupPath: lastBackup && existsSync(lastBackup) ? lastBackup : null
+    }
+  })
+
+  ipcMain.handle(IpcChannels.appCompleteOnboarding, () => {
+    repository.setSetting('onboardingDone', '1')
+  })
+
+  ipcMain.handle(IpcChannels.appIsOnline, () => net.isOnline())
+
+  ipcMain.handle(IpcChannels.appResetEverything, async () => {
+    // 1. A full backup, read back in full before anything is deleted.
+    const folder = path.join(app.getPath('documents'), 'Orus backups')
+    mkdirSync(folder, { recursive: true })
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
+    const backupPath = path.join(folder, `Orus-backup-${stamp}.orus`)
+    scanService.cancel()
+    playtime.stop()
+    const exported = await backup.export(backupPath)
+    const check = await backup.verify(backupPath)
+    if (check.games !== exported.games || check.sessions !== exported.sessions) throw new Error('The backup did not check out, so nothing was deleted')
+
+    // 2. Everything goes: games, hours, covers, icons, profile, settings.
+    repository.wipeAll()
+    for (const directory of [gameMediaDirectory(), iconsDirectory(), profile.directory]) rmSync(directory, { recursive: true, force: true })
+    repository.setSetting('lastBackup', backupPath)
+
+    // 3. Start over at the welcome screens.
+    setTimeout(() => {
+      app.relaunch()
+      app.exit(0)
+    }, 600)
+    return { backupPath }
+  })
+
+  ipcMain.handle(IpcChannels.dataImportLastBackup, async () => {
+    const file = repository.getSetting('lastBackup')
+    if (!file || !existsSync(file)) return null
+    const summary = await backup.import(file)
+    notifyLibraryChanged()
+    return summary
+  })
+
+  ipcMain.handle(IpcChannels.windowMinimize, (event) => BrowserWindow.fromWebContents(event.sender)?.minimize())
+  ipcMain.handle(IpcChannels.windowToggleFullscreen, (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    window?.setFullScreen(!window.isFullScreen())
+  })
+  ipcMain.handle(IpcChannels.windowClose, (event) => BrowserWindow.fromWebContents(event.sender)?.close())
 
   ipcMain.handle(IpcChannels.settingsSetSkin, (_event, rawSkin: unknown) => {
     settings.setSkin(skinSchema.parse(rawSkin))

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { EmulatedPlatform, EmulationPlatformState } from '@shared/types'
 import { errorMessage, useLauncher } from '../store'
+import { HANDHELD_ICON } from './ConsoleIcon'
 
 interface ConsoleInfo {
   platform: EmulatedPlatform
@@ -15,7 +16,7 @@ const CONSOLES: ConsoleInfo[] = [
     platform: 'switch',
     name: 'Nintendo Switch',
     files: '.nsp and .xci files',
-    icon: 'M8 4h3v16H8a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4zM13 4h3a4 4 0 0 1 4 4v8a4 4 0 0 1-4 4h-3zM7.5 9.5h.01M16.5 14.5h.01'
+    icon: HANDHELD_ICON
   }
 ]
 

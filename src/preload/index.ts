@@ -61,7 +61,8 @@ const api: LauncherApi = {
     get: () => ipcRenderer.invoke(IpcChannels.settingsGet),
     setRawgKey: (key) => ipcRenderer.invoke(IpcChannels.settingsSetRawgKey, key),
     setSteamGridDbKey: (key) => ipcRenderer.invoke(IpcChannels.settingsSetSteamGridDbKey, key),
-    setSkin: (skin) => ipcRenderer.invoke(IpcChannels.settingsSetSkin, skin)
+    setSkin: (skin) => ipcRenderer.invoke(IpcChannels.settingsSetSkin, skin),
+    setScanMode: (mode) => ipcRenderer.invoke(IpcChannels.settingsSetScanMode, mode)
   },
   updates: {
     get: () => ipcRenderer.invoke(IpcChannels.updatesGet),
@@ -80,7 +81,20 @@ const api: LauncherApi = {
   },
   data: {
     export: () => ipcRenderer.invoke(IpcChannels.dataExport),
-    import: () => ipcRenderer.invoke(IpcChannels.dataImport)
+    import: () => ipcRenderer.invoke(IpcChannels.dataImport),
+    importLastBackup: () => ipcRenderer.invoke(IpcChannels.dataImportLastBackup)
+  },
+  app: {
+    state: () => ipcRenderer.invoke(IpcChannels.appState),
+    completeOnboarding: () => ipcRenderer.invoke(IpcChannels.appCompleteOnboarding),
+    isOnline: () => ipcRenderer.invoke(IpcChannels.appIsOnline),
+    resetEverything: () => ipcRenderer.invoke(IpcChannels.appResetEverything)
+  },
+  window: {
+    minimize: () => ipcRenderer.invoke(IpcChannels.windowMinimize),
+    toggleFullscreen: () => ipcRenderer.invoke(IpcChannels.windowToggleFullscreen),
+    close: () => ipcRenderer.invoke(IpcChannels.windowClose),
+    onFullscreenChanged: (listener) => subscribe(IpcChannels.windowFullscreenChanged, listener)
   },
   openExternal: (url) => ipcRenderer.invoke(IpcChannels.openExternal, url)
 }
