@@ -1,9 +1,11 @@
 import type {
   DetectionSource,
+  ExcludedPath,
   ExecutableCandidate,
   Game,
   GameCategory,
   GameEngine,
+  GamePlatform,
   GameMetadata,
   GameStatus,
   LaunchTarget,
@@ -27,6 +29,7 @@ interface GameRow {
   launch: string | null
   sources: string
   category: string
+  platform: string
   engine: string
   confidence: number
   needs_review: number
@@ -87,6 +90,7 @@ function toGame(row: GameRow): Game {
     launch: parseJson<LaunchTarget | null>(row.launch, null),
     sources: parseJson<DetectionSource[]>(row.sources, []),
     category: row.category as GameCategory,
+    platform: (row.platform ?? 'pc') as GamePlatform,
     engine: row.engine as GameEngine,
     confidence: row.confidence,
     needsReview: row.needs_review === 1,
@@ -158,7 +162,8 @@ export class Repository {
         status: game.status,
         launch: game.launch,
         exeSizeBytes: exe?.sizeBytes ?? null,
-        manualFields: game.manualFields
+        manualFields: game.manualFields,
+        platform: game.platform
       }
     })
   }
@@ -167,9 +172,9 @@ export class Repository {
     const timestamp = now()
     const result = this.db
       .prepare(
-        `INSERT INTO games (install_path, folder_name, title, search_title, launch, sources, category, engine, confidence,
+        `INSERT INTO games (install_path, folder_name, title, search_title, launch, sources, category, platform, engine, confidence,
           needs_review, exe_candidates, size_bytes, status, metadata_status, added_at, updated_at, last_seen_at)
-         VALUES (@installPath, @folderName, @title, @searchTitle, @launch, @sources, @category, @engine, @confidence,
+         VALUES (@installPath, @folderName, @title, @searchTitle, @launch, @sources, @category, @platform, @engine, @confidence,
           @needsReview, @exeCandidates, @sizeBytes, 'installed', @metadataStatus, @timestamp, @timestamp, @timestamp)`
       )
       .run({ ...this.candidateParams(candidate), metadataStatus: candidate.category === 'game' ? 'pending' : 'skipped', timestamp })
@@ -216,7 +221,7 @@ export class Repository {
     this.db
       .prepare(
         `UPDATE games SET install_path = @installPath, folder_name = @folderName, title = @title,
-          search_title = @searchTitle, launch = @launch, sources = @sources, category = @category, engine = @engine,
+          search_title = @searchTitle, launch = @launch, sources = @sources, category = @category, platform = @platform, engine = @engine,
           confidence = @confidence, needs_review = @needsReview, exe_candidates = @exeCandidates, size_bytes = @sizeBytes,
           status = 'installed', metadata_status = @metadataStatus, updated_at = @timestamp, last_seen_at = @timestamp
          WHERE id = @id`
@@ -386,6 +391,7 @@ export class Repository {
       launch: JSON.stringify(candidate.launch),
       sources: JSON.stringify(candidate.sources),
       category: candidate.category,
+      platform: candidate.platform ?? 'pc',
       engine: candidate.engine,
       confidence: candidate.confidence,
       needsReview: candidate.needsReview ? 1 : 0,
@@ -442,10 +448,10 @@ export class Repository {
   insertBackupGame(game: BackupGame): number {
     const result = this.db
       .prepare(
-        `INSERT INTO games (install_path, folder_name, title, search_title, launch, sources, category, engine, confidence,
+        `INSERT INTO games (install_path, folder_name, title, search_title, launch, sources, category, platform, engine, confidence,
           needs_review, exe_candidates, size_bytes, status, hidden, favorite, manual_fields, metadata, metadata_status,
           added_at, updated_at, last_seen_at)
-         VALUES (@installPath, @folderName, @title, @searchTitle, @launch, @sources, @category, @engine, @confidence,
+         VALUES (@installPath, @folderName, @title, @searchTitle, @launch, @sources, @category, @platform, @engine, @confidence,
           @needsReview, @exeCandidates, @sizeBytes, @status, @hidden, @favorite, @manualFields, @metadata, @metadataStatus,
           @addedAt, @updatedAt, @lastSeenAt)`
       )
@@ -457,6 +463,7 @@ export class Repository {
         launch: JSON.stringify(game.launch),
         sources: JSON.stringify(game.sources),
         category: game.category,
+        platform: game.platform,
         engine: game.engine,
         confidence: game.confidence,
         needsReview: game.needsReview ? 1 : 0,
@@ -559,6 +566,26 @@ export class Repository {
     const statement = this.db.prepare('UPDATE library_roots SET last_scanned_at = ? WHERE path = ?')
     const timestamp = now()
     for (const path of paths) statement.run(timestamp, path)
+  }
+
+  // ------------------------------------------------------------------ excluded paths
+
+  listExcludedPaths(): ExcludedPath[] {
+    const rows = this.db.prepare('SELECT * FROM excluded_paths ORDER BY path COLLATE NOCASE').all() as {
+      id: number
+      path: string
+      label: string | null
+      added_at: string
+    }[]
+    return rows.map((row) => ({ id: row.id, path: row.path, label: row.label, addedAt: row.added_at }))
+  }
+
+  addExcludedPath(target: string, label: string | null = null): void {
+    this.db.prepare('INSERT OR IGNORE INTO excluded_paths (path, label, added_at) VALUES (?, ?, ?)').run(target, label, now())
+  }
+
+  removeExcludedPath(id: number): void {
+    this.db.prepare('DELETE FROM excluded_paths WHERE id = ?').run(id)
   }
 
   // ------------------------------------------------------------------ scan cache

@@ -1,5 +1,6 @@
 import type { Game } from '@shared/types'
 import { formatHoursShort, iconUrl } from '../format'
+import { removeFromLibrary } from '../removeGame'
 import { errorMessage, useLauncher } from '../store'
 
 function ProgramRow({ program, removable }: { program: Game; removable: boolean }) {
@@ -27,7 +28,7 @@ function ProgramRow({ program, removable }: { program: Game; removable: boolean 
       </button>
       {program.playtimeSeconds > 0 && <span className="shrink-0 text-xs text-muted">{formatHoursShort(program.playtimeSeconds)}</span>}
       {removable && (
-        <button type="button" onClick={() => void run(() => window.api.library.remove(program.id))} className="rounded-md px-3 py-2 text-sm text-muted hover:bg-raised hover:text-danger">
+        <button type="button" onClick={() => void removeFromLibrary(program)} className="rounded-md px-3 py-2 text-sm text-muted hover:bg-raised hover:text-danger">
           Remove
         </button>
       )}

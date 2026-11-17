@@ -17,6 +17,7 @@ function game(overrides: Partial<Game>): Game {
     launch: { type: 'exe', exePath: 'D:\\Juegos\\Hades\\x64\\Hades.exe', args: '-windowed', workingDir: 'D:\\Juegos\\Hades\\x64' },
     sources: ['folder'],
     category: 'game',
+    platform: 'pc',
     engine: 'unknown',
     confidence: 80,
     needsReview: false,

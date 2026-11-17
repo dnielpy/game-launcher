@@ -16,7 +16,19 @@ const api: LauncherApi = {
     remove: (id) => ipcRenderer.invoke(IpcChannels.libraryRemove, id),
     chooseLaunchFile: (id) => ipcRenderer.invoke(IpcChannels.libraryChooseLaunchFile, id),
     relocate: (id) => ipcRenderer.invoke(IpcChannels.libraryRelocate, id),
+    delete: (id) => ipcRenderer.invoke(IpcChannels.libraryDelete, id),
     onChanged: (listener) => subscribe(IpcChannels.libraryChanged, listener)
+  },
+  exclusions: {
+    list: () => ipcRenderer.invoke(IpcChannels.exclusionsList),
+    pick: () => ipcRenderer.invoke(IpcChannels.exclusionsPick),
+    add: (path) => ipcRenderer.invoke(IpcChannels.exclusionsAdd, path),
+    remove: (id) => ipcRenderer.invoke(IpcChannels.exclusionsRemove, id)
+  },
+  emulation: {
+    get: (platform) => ipcRenderer.invoke(IpcChannels.emulationGet, platform),
+    setEnabled: (platform, enabled) => ipcRenderer.invoke(IpcChannels.emulationSetEnabled, platform, enabled),
+    setEmulator: (platform, emulatorId) => ipcRenderer.invoke(IpcChannels.emulationSetEmulator, platform, emulatorId)
   },
   emulators: {
     add: () => ipcRenderer.invoke(IpcChannels.emulatorsAdd)
@@ -38,7 +50,7 @@ const api: LauncherApi = {
     onFinished: (listener) => subscribe(IpcChannels.scanFinished, listener)
   },
   metadata: {
-    search: (query) => ipcRenderer.invoke(IpcChannels.metadataSearch, query),
+    search: (query, gameId) => ipcRenderer.invoke(IpcChannels.metadataSearch, query, gameId),
     assign: (gameId, source, externalId) => ipcRenderer.invoke(IpcChannels.metadataAssign, gameId, source, externalId),
     clear: (gameId) => ipcRenderer.invoke(IpcChannels.metadataClear, gameId),
     refresh: (gameId) => ipcRenderer.invoke(IpcChannels.metadataRefresh, gameId),
@@ -47,7 +59,9 @@ const api: LauncherApi = {
   },
   settings: {
     get: () => ipcRenderer.invoke(IpcChannels.settingsGet),
-    setRawgKey: (key) => ipcRenderer.invoke(IpcChannels.settingsSetRawgKey, key)
+    setRawgKey: (key) => ipcRenderer.invoke(IpcChannels.settingsSetRawgKey, key),
+    setSteamGridDbKey: (key) => ipcRenderer.invoke(IpcChannels.settingsSetSteamGridDbKey, key),
+    setSkin: (skin) => ipcRenderer.invoke(IpcChannels.settingsSetSkin, skin)
   },
   updates: {
     get: () => ipcRenderer.invoke(IpcChannels.updatesGet),

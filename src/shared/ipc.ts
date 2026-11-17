@@ -1,5 +1,8 @@
 import type {
   Game,
+  EmulatedPlatform,
+  EmulationPlatformState,
+  ExcludedPath,
   ExportSummary,
   GamePatch,
   ImportSummary,
@@ -12,6 +15,7 @@ import type {
   ScanProgress,
   ScanSummary,
   SettingsState,
+  SkinId,
   UpdateStatus
 } from './types'
 
@@ -24,6 +28,16 @@ export const IpcChannels = {
   libraryRemove: 'library:remove',
   libraryChooseLaunchFile: 'library:choose-launch-file',
   libraryRelocate: 'library:relocate',
+  libraryDelete: 'library:delete',
+  exclusionsList: 'exclusions:list',
+  exclusionsPick: 'exclusions:pick',
+  exclusionsAdd: 'exclusions:add',
+  exclusionsRemove: 'exclusions:remove',
+  emulationGet: 'emulation:get',
+  emulationSetEnabled: 'emulation:set-enabled',
+  emulationSetEmulator: 'emulation:set-emulator',
+  settingsSetSteamGridDbKey: 'settings:set-steamgriddb-key',
+  settingsSetSkin: 'settings:set-skin',
   profileGet: 'profile:get',
   profileSave: 'profile:save',
   profileChoosePhoto: 'profile:choose-photo',
@@ -73,8 +87,26 @@ export interface LauncherApi {
     chooseLaunchFile(id: number): Promise<Game | null>
     /** Opens a folder picker to point the game at a new location (moved or reinstalled). Null when cancelled. */
     relocate(id: number): Promise<Game | null>
+    /** Takes the game out of the library for good and excludes its location, so scans never bring it back. */
+    delete(id: number): Promise<void>
     /** Fires when games change outside the renderer: new covers, finished play sessions. */
     onChanged(listener: (payload: { runningGameIds: number[] }) => void): Unsubscribe
+  }
+  exclusions: {
+    list(): Promise<ExcludedPath[]>
+    /** Opens a folder picker. Returns the chosen folder without excluding it yet; null when cancelled. */
+    pick(): Promise<string | null>
+    /** Excludes a folder. Games inside it leave the library. */
+    add(path: string): Promise<void>
+    /** Stops excluding a folder; the next scan looks there again. */
+    remove(id: number): Promise<void>
+  }
+  emulation: {
+    get(platform: EmulatedPlatform): Promise<EmulationPlatformState>
+    /** Turning a console on starts a scan for its games. */
+    setEnabled(platform: EmulatedPlatform, enabled: boolean): Promise<EmulationPlatformState>
+    /** null goes back to picking the emulator automatically. */
+    setEmulator(platform: EmulatedPlatform, emulatorId: number | null): Promise<EmulationPlatformState>
   }
   emulators: {
     /** Opens a file picker for the emulator's executable. Resolves to null when the user cancels. */
@@ -98,7 +130,8 @@ export interface LauncherApi {
     onFinished(listener: (result: { summary: ScanSummary | null; error: string | null }) => void): Unsubscribe
   }
   metadata: {
-    search(query: string): Promise<MetadataCandidate[]>
+    /** With a game id, searches the catalogs that fit that game's platform. */
+    search(query: string, gameId?: number): Promise<MetadataCandidate[]>
     assign(gameId: number, source: MetadataSource, externalId: string): Promise<Game>
     /** Removes the match and keeps the game without cover or info. */
     clear(gameId: number): Promise<Game>
@@ -109,6 +142,8 @@ export interface LauncherApi {
   settings: {
     get(): Promise<SettingsState>
     setRawgKey(key: string | null): Promise<SettingsState>
+    setSteamGridDbKey(key: string | null): Promise<SettingsState>
+    setSkin(skin: SkinId): Promise<SettingsState>
   }
   updates: {
     get(): Promise<UpdateStatus>

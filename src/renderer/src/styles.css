@@ -51,3 +51,149 @@ body {
     animation: none !important;
   }
 }
+
+/* ------------------------------------------------------------------ skins
+ * The skin is a data attribute on <html>. Colors, type and corner radius change here;
+ * App swaps the layout (navigation and Home) for each skin.
+ */
+
+:root[data-skin='cinema'] {
+  --color-canvas: #0b0d12;
+  --color-surface: #141821;
+  --color-raised: #1e2330;
+  --color-line: #29303f;
+  --color-ink: #f4f1ea;
+  --color-muted: #a39f96;
+  --color-accent: #c97a0a;
+  --color-accent-bright: #f5a524;
+  --font-sans: 'Bahnschrift', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  --font-display: 'Bahnschrift', 'Segoe UI Variable Display', 'Segoe UI', system-ui, sans-serif;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+}
+
+:root[data-skin='mosaic'] {
+  color-scheme: light;
+  --color-canvas: #eceef3;
+  --color-surface: #ffffff;
+  --color-raised: #e3e6ed;
+  --color-line: #d6dae3;
+  --color-ink: #15171c;
+  --color-muted: #5b6270;
+  --color-accent: #4f4fd1;
+  --color-accent-bright: #6a6af4;
+  --color-warn: #c98600;
+  --color-danger: #d63a40;
+  --font-sans: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  --font-display: 'Segoe UI Variable Display', 'Segoe UI', system-ui, sans-serif;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+}
+
+:root[data-skin='mosaic'] ::selection {
+  background: #c9c9ff;
+}
+
+/* Keyframes shared by every skin. */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes zoom-out-in {
+  from {
+    opacity: 0;
+    transform: scale(1.02);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* A slow push-in on the Cinema backdrop. */
+@keyframes ken-burns {
+  from {
+    transform: scale(1.08) translate3d(1%, 0.5%, 0);
+  }
+  to {
+    transform: scale(1) translate3d(0, 0, 0);
+  }
+}
+
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Each skin enters a section its own way. */
+.view-enter {
+  animation: rise-in 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+:root[data-skin='cinema'] .view-enter {
+  animation: zoom-out-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+:root[data-skin='mosaic'] .view-enter {
+  animation: slide-in-right 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.stagger > * {
+  animation: rise-in 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* Cross-fade when the skin changes (View Transitions). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 380ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

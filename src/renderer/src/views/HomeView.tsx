@@ -71,7 +71,7 @@ function Featured({ game }: { game: Game }) {
 }
 
 export function HomeView() {
-  const { games, scanning, startScan, loaded } = useLauncher()
+  const { games, loaded } = useLauncher()
   const visible = games.filter((game) => game.category === 'game' && !game.hidden && game.status === 'installed')
   // Nothing played yet: any game, preferring ones with a banner. Picked once and kept while it stays in the library.
   const pickedId = useRef<number | null>(null)
@@ -82,22 +82,8 @@ export function HomeView() {
   }
   const randomPick = candidates.find((game) => game.id === pickedId.current)
 
-  if (visible.length === 0) {
-    if (!loaded) return null
-    return (
-      <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
-        <h1 className="font-display text-4xl font-semibold">{scanning ? 'Looking for your games' : 'Your library is empty'}</h1>
-        <p className="max-w-md text-muted">
-          {scanning ? 'Games show up here as soon as the scan finishes.' : 'Scan your PC to find installed games, or add the folders where you keep them under Locations.'}
-        </p>
-        {!scanning && (
-          <button type="button" onClick={() => void startScan(true)} className="mt-2 rounded-md bg-accent px-6 py-2.5 font-semibold text-white hover:bg-accent-bright hover:text-black">
-            Scan for games
-          </button>
-        )}
-      </div>
-    )
-  }
+  if (visible.length === 0) return loaded ? <EmptyHome /> : null
+
 
   const recentlyPlayed = visible.filter((game) => game.lastPlayedAt).sort((a, b) => b.lastPlayedAt!.localeCompare(a.lastPlayedAt!))
   const recentlyAdded = [...visible].sort((a, b) => b.addedAt.localeCompare(a.addedAt)).slice(0, 14)
@@ -113,5 +99,23 @@ export function HomeView() {
       <Row title="Recently added" games={recentlyAdded} />
       <Row title="Most played" games={mostPlayed} showPlaytime />
     </div>
+  )
+}
+
+/** Shown by every skin when no game is installed yet. */
+export function EmptyHome() {
+  const { scanning, startScan } = useLauncher()
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
+        <h1 className="font-display text-4xl font-semibold">{scanning ? 'Looking for your games' : 'Your library is empty'}</h1>
+        <p className="max-w-md text-muted">
+          {scanning ? 'Games show up here as soon as the scan finishes.' : 'Scan your PC to find installed games, or add the folders where you keep them under Locations.'}
+        </p>
+        {!scanning && (
+          <button type="button" onClick={() => void startScan(true)} className="mt-2 rounded-md bg-accent px-6 py-2.5 font-semibold text-white hover:bg-accent-bright hover:text-black">
+            Scan for games
+          </button>
+        )}
+      </div>
   )
 }

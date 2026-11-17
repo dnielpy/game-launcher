@@ -10,6 +10,8 @@ import { discoverDefaultRoots } from '../scanner/sources/defaultRoots'
 import type { ScanInput, ScanOutput } from '../scanner/types'
 import type { WorkerRequest, WorkerResponse } from '../scanner/worker/protocol'
 import { extractIcon } from './icons'
+import { readSwitchEmulatorGameDirs } from '../scanner/sources/switchEmulators'
+import type { EmulationService } from './emulation'
 import { readShortcuts } from './shortcuts'
 
 export interface ScanEvents {
@@ -25,7 +27,8 @@ export class ScanService {
   constructor(
     private readonly repository: Repository,
     private readonly workerPath: string,
-    private readonly events: ScanEvents
+    private readonly events: ScanEvents,
+    private readonly emulation: EmulationService
   ) {}
 
   get isRunning(): boolean {
@@ -50,6 +53,7 @@ export class ScanService {
 
     try {
       await this.syncDefaultRoots()
+      const romPlatforms = this.emulation.enabledPlatforms()
       const input: ScanInput = {
         roots: this.repository
           .listRoots()
@@ -59,7 +63,9 @@ export class ScanService {
         includeRegistry: true,
         includeLaunchers: true,
         cache: this.repository.loadScanCache(),
-        excludePaths: app.isPackaged ? [path.dirname(app.getPath('exe'))] : []
+        excludePaths: [...(app.isPackaged ? [path.dirname(app.getPath('exe'))] : []), ...this.repository.listExcludedPaths().map((entry) => entry.path)],
+        romPlatforms,
+        romDirs: romPlatforms.includes('switch') ? await readSwitchEmulatorGameDirs() : []
       }
       const output = await this.runWorker(input)
       if (!output) {
@@ -133,7 +139,13 @@ export class ScanService {
       return reachableDrives.has(drive)
     }
 
-    const plan = reconcile(this.repository.storedGamesForReconcile(), output.games, isLocationReachable)
+    // Games of a console that is turned off are left alone: they come back as they were when it is turned on again.
+    const enabled = new Set(['pc', ...this.emulation.enabledPlatforms()])
+    const plan = reconcile(
+      this.repository.storedGamesForReconcile().filter((game) => enabled.has(game.platform ?? 'pc')),
+      output.games,
+      isLocationReachable
+    )
     const newIds: number[] = []
 
     // A game whose folder is still on disk but that the scanner no longer accepts (an update

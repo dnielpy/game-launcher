@@ -182,4 +182,28 @@ describe.skipIf(!sqliteAvailable)('migration 3', () => {
       repository.relocateGame(id, { installPath: 'e:\\games\\taken', folderName: 'Taken', launch: null, exeCandidates: [], needsReview: false })
     ).toThrow('already lives in that folder')
   })
+
+  it('keeps excluded paths and stores the platform of console games', () => {
+    const repository = setup()
+    repository.addExcludedPath('D:\\Juegos\\Old', 'Old game')
+    repository.addExcludedPath('d:\\juegos\\old')
+    const excluded = repository.listExcludedPaths()
+    expect(excluded).toHaveLength(1)
+    expect(excluded[0]).toMatchObject({ path: 'D:\\Juegos\\Old', label: 'Old game' })
+    repository.removeExcludedPath(excluded[0]!.id)
+    expect(repository.listExcludedPaths()).toEqual([])
+
+    const id = repository.insertGame(
+      candidate({
+        installPath: 'D:\\Switch\\Celeste.nsp',
+        folderName: 'Celeste.nsp',
+        title: 'Celeste',
+        platform: 'switch',
+        launch: { type: 'rom', romPath: 'D:\\Switch\\Celeste.nsp', platform: 'switch' },
+        exeCandidates: []
+      })
+    )
+    expect(repository.getGame(id)).toMatchObject({ platform: 'switch', launch: { type: 'rom' } })
+    expect(repository.getGame(repository.insertGame(candidate()))?.platform).toBe('pc')
+  })
 })

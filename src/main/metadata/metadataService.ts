@@ -5,6 +5,7 @@ import type { Repository } from '../db/repository'
 import { log } from '../logger'
 import { ACCEPT_SCORE, matchScore, searchQueries } from './matcher'
 import { RawgClient, type RawgSearchItem } from './rawgClient'
+import { SteamGridDbClient, type SteamGridDbArtwork } from './steamGridDbClient'
 import { RateLimitError, SteamClient, type FetchLike, type SteamSearchItem } from './steamClient'
 
 const MAX_SCREENSHOTS = 4
@@ -16,11 +17,14 @@ export interface MetadataServiceOptions {
   mediaDirectory: string
   fetch: FetchLike
   getRawgKey: () => string | null
+  getSteamGridDbKey: () => string | null
   onProgress: (progress: MetadataProgress) => void
   onGameChanged: () => void
 }
 
-type Match = { source: 'steam'; appId: number } | { source: 'rawg'; id: number; slug: string }
+type Match = { source: 'steam'; appId: number } | { source: 'rawg'; id: number; slug: string } | { source: 'steamgriddb'; id: number }
+
+type MatchTarget = Pick<Game, 'title' | 'searchTitle' | 'folderName'> & { platform?: Game['platform'] }
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -109,10 +113,32 @@ export class MetadataService {
 
   // ---------------------------------------------------------------- matching
 
-  async findMatch(game: Pick<Game, 'title' | 'searchTitle' | 'folderName'>): Promise<Match | null> {
+  async findMatch(game: MatchTarget): Promise<Match | null> {
+    // Console games are not on Steam: RAWG knows their details, SteamGridDB their artwork.
+    if (game.platform === 'switch') return (await this.findOnRawg(game, 'switch')) ?? (await this.findOnSteamGridDb(game))
     const steam = await this.findOnSteam(game)
     if (steam) return steam
-    return this.findOnRawg(game)
+    return (await this.findOnRawg(game)) ?? (await this.findOnSteamGridDb(game))
+  }
+
+  private async findOnSteamGridDb(game: Pick<Game, 'title' | 'searchTitle'>): Promise<Match | null> {
+    const id = await this.steamGridDbId(game.title, game.searchTitle)
+    return id === null ? null : { source: 'steamgriddb', id }
+  }
+
+  private async steamGridDbId(...names: string[]): Promise<number | null> {
+    const client = this.steamGridDb()
+    if (!client) return null
+    for (const query of searchQueries(names[0]!, names[1] ?? names[0]!).slice(0, 3)) {
+      const results = await client.search(query)
+      let best: { id: number; score: number } | null = null
+      for (const item of results) {
+        const score = Math.max(...names.map((name) => matchScore(item.name, name)))
+        if (!best || score > best.score) best = { id: item.id, score }
+      }
+      if (best && best.score >= ACCEPT_SCORE) return best.id
+    }
+    return null
   }
 
   private async findOnSteam(game: Pick<Game, 'title' | 'searchTitle'>): Promise<Match | null> {
@@ -134,11 +160,11 @@ export class MetadataService {
     return null
   }
 
-  private async findOnRawg(game: Pick<Game, 'title' | 'searchTitle'>): Promise<Match | null> {
+  private async findOnRawg(game: Pick<Game, 'title' | 'searchTitle'>, platform: 'pc' | 'switch' = 'pc'): Promise<Match | null> {
     const rawg = this.rawg()
     if (!rawg) return null
     for (const query of searchQueries(game.title, game.searchTitle).slice(0, 3)) {
-      const results = await rawg.search(query)
+      const results = await rawg.search(query, platform)
       let best: { item: RawgSearchItem; score: number } | null = null
       for (const item of results) {
         const score = Math.max(matchScore(item.name, game.title), matchScore(item.name, game.searchTitle))
@@ -152,7 +178,9 @@ export class MetadataService {
   // ---------------------------------------------------------------- fetching
 
   private async fetchMetadata(gameId: number, match: Match): Promise<GameMetadata | null> {
-    return match.source === 'steam' ? this.fromSteam(gameId, match.appId) : this.fromRawg(gameId, match.id)
+    if (match.source === 'steam') return this.fromSteam(gameId, match.appId)
+    if (match.source === 'rawg') return this.fromRawg(gameId, match.id)
+    return this.fromSteamGridDb(gameId, match.id)
   }
 
   private async fromSteam(gameId: number, appId: number): Promise<GameMetadata | null> {
@@ -202,10 +230,13 @@ export class MetadataService {
     if (!rawg) return null
     const details = await rawg.details(id)
     if (!details) return null
+    // RAWG has no vertical covers or logos; SteamGridDB fills them in when a key is set.
+    const art = await this.steamGridDbArtwork(details.name)
     const directory = this.resetGameMedia(gameId)
     const images = [details.backgroundImage, details.backgroundImageAdditional].filter((url): url is string => url !== null)
-    const heroFile = await this.downloadFirst(images, directory, 'hero')
-    const coverFile = await this.downloadFirst(images, directory, 'cover')
+    const heroFile = await this.downloadFirst([...art.hero, ...images], directory, 'hero')
+    const coverFile = await this.downloadFirst([...art.cover, ...images], directory, 'cover')
+    const logoFile = await this.downloadFirst(art.logo, directory, 'logo')
 
     return {
       source: 'rawg',
@@ -224,24 +255,79 @@ export class MetadataService {
       storeUrl: `https://rawg.io/games/${details.slug}`,
       coverFile,
       heroFile,
-      logoFile: null,
+      logoFile,
       screenshotFiles: []
+    }
+  }
+
+  /** Artwork only: SteamGridDB has no descriptions, dates or ratings. */
+  private async fromSteamGridDb(gameId: number, id: number): Promise<GameMetadata | null> {
+    const client = this.steamGridDb()
+    if (!client) return null
+    const game = await client.game(id)
+    if (!game) return null
+    const art = await client.artwork(id)
+    const directory = this.resetGameMedia(gameId)
+    const coverFile = await this.downloadFirst(art.cover, directory, 'cover')
+    const heroFile = await this.downloadFirst(art.hero, directory, 'hero')
+    const logoFile = await this.downloadFirst(art.logo, directory, 'logo')
+    return {
+      source: 'steamgriddb',
+      externalId: String(id),
+      name: cleanStoreName(game.name),
+      shortDescription: null,
+      description: null,
+      releaseDate: game.releaseYear ? String(game.releaseYear) : null,
+      genres: [],
+      developers: [],
+      publishers: [],
+      rating: null,
+      ratingLabel: null,
+      ratingCount: null,
+      metacritic: null,
+      storeUrl: `https://www.steamgriddb.com/game/${id}`,
+      coverFile,
+      heroFile,
+      logoFile,
+      screenshotFiles: []
+    }
+  }
+
+  private async steamGridDbArtwork(name: string): Promise<SteamGridDbArtwork> {
+    const empty: SteamGridDbArtwork = { cover: [], hero: [], logo: [] }
+    const client = this.steamGridDb()
+    if (!client) return empty
+    try {
+      const id = await this.steamGridDbId(name)
+      return id === null ? empty : await client.artwork(id)
+    } catch (error) {
+      log.warn(`SteamGridDB artwork lookup failed for "${name}"`, error)
+      return empty
     }
   }
 
   // ---------------------------------------------------------------- manual fixes
 
-  async search(query: string): Promise<MetadataCandidate[]> {
+  async search(query: string, platform: Game['platform'] = 'pc'): Promise<MetadataCandidate[]> {
     const trimmed = query.trim()
     if (trimmed.length < 2) return []
     const candidates: MetadataCandidate[] = []
-    const steamResults: SteamSearchItem[] = await this.steam.search(trimmed).catch(() => [])
-    for (const item of steamResults) {
-      candidates.push({ source: 'steam', externalId: String(item.appId), name: item.name, imageUrl: item.imageUrl, released: null })
+    if (platform === 'pc') {
+      const steamResults: SteamSearchItem[] = await this.steam.search(trimmed).catch(() => [])
+      for (const item of steamResults) {
+        candidates.push({ source: 'steam', externalId: String(item.appId), name: item.name, imageUrl: item.imageUrl, released: null })
+      }
+    }
+    const steamGridDb = this.steamGridDb()
+    if (steamGridDb) {
+      const results = await steamGridDb.search(trimmed).catch(() => [])
+      for (const item of results.slice(0, 6)) {
+        candidates.push({ source: 'steamgriddb', externalId: String(item.id), name: item.name, imageUrl: null, released: item.releaseYear ? String(item.releaseYear) : null })
+      }
     }
     const rawg = this.rawg()
     if (rawg) {
-      const rawgResults = await rawg.search(trimmed).catch(() => [] as RawgSearchItem[])
+      const rawgResults = await rawg.search(trimmed, platform === 'switch' ? 'switch' : 'pc').catch(() => [] as RawgSearchItem[])
       for (const item of rawgResults.slice(0, 6)) {
         candidates.push({ source: 'rawg', externalId: String(item.id), name: item.name, imageUrl: item.imageUrl, released: item.released })
       }
@@ -252,7 +338,7 @@ export class MetadataService {
   async assign(gameId: number, source: MetadataSource, externalId: string): Promise<void> {
     const numericId = Number(externalId)
     if (!Number.isInteger(numericId) || numericId <= 0) throw new Error('Invalid catalog id')
-    const metadata = source === 'steam' ? await this.fromSteam(gameId, numericId) : await this.fromRawg(gameId, numericId)
+    const metadata = await this.fetchMetadata(gameId, source === 'steam' ? { source, appId: numericId } : source === 'rawg' ? { source, id: numericId, slug: '' } : { source, id: numericId })
     if (!metadata) throw new Error('Could not load that game. Try another result.')
     this.options.repository.setMetadata(gameId, metadata, 'matched', true)
   }
@@ -279,6 +365,11 @@ export class MetadataService {
   }
 
   // ---------------------------------------------------------------- helpers
+
+  private steamGridDb(): SteamGridDbClient | null {
+    const key = this.options.getSteamGridDbKey()
+    return key ? new SteamGridDbClient(this.options.fetch, key) : null
+  }
 
   private rawg(): RawgClient | null {
     const key = this.options.getRawgKey()

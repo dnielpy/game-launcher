@@ -6,13 +6,14 @@ const stringList = z.array(z.string().max(500)).max(200).default([])
 const launchSchema = z
   .union([
     z.object({ type: z.literal('exe'), exePath: z.string().min(1), args: z.string().default(''), workingDir: z.string().default('') }),
-    z.object({ type: z.literal('uri'), uri: z.string().min(1) })
+    z.object({ type: z.literal('uri'), uri: z.string().min(1) }),
+    z.object({ type: z.literal('rom'), romPath: z.string().min(1), platform: z.enum(['switch']) })
   ])
   .nullable()
 
 const metadataSchema = z
   .object({
-    source: z.enum(['steam', 'rawg']),
+    source: z.enum(['steam', 'rawg', 'steamgriddb']),
     externalId: z.string(),
     name: z.string(),
     shortDescription: text.nullable().default(null),
@@ -42,6 +43,7 @@ export const backupGameSchema = z.object({
   launch: launchSchema,
   sources: z.array(z.enum(['folder', 'registry', 'shortcut', 'steam', 'epic', 'manual'])).default([]),
   category: z.enum(['game', 'tool', 'emulator']),
+  platform: z.enum(['pc', 'switch']).default('pc'),
   engine: z.enum(['unity', 'unreal', 'gamemaker', 'godot', 'rpgmaker', 'unknown']).default('unknown'),
   confidence: z.number().default(0),
   needsReview: z.boolean().default(false),

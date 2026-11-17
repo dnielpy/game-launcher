@@ -1,4 +1,4 @@
-import type { DetectionSource, ExecutableCandidate, GameCategory, GameEngine, LaunchTarget, RootCategory } from '@shared/types'
+import type { DetectionSource, EmulatedPlatform, ExecutableCandidate, GameCategory, GameEngine, GamePlatform, LaunchTarget, RootCategory } from '@shared/types'
 
 export interface ScanRoot {
   path: string
@@ -34,6 +34,8 @@ export interface ScanCandidate {
   searchTitle: string
   sources: DetectionSource[]
   category: GameCategory
+  /** Missing means a Windows game. */
+  platform?: GamePlatform
   engine: GameEngine
   confidence: number
   needsReview: boolean
@@ -64,6 +66,10 @@ export interface ScanInput {
   cache: ScanCache
   /** Folders that are never games, such as the launcher's own install folder. */
   excludePaths?: string[]
+  /** Consoles whose game files are searched for (Switch .nsp) under the game roots and romDirs. */
+  romPlatforms?: EmulatedPlatform[]
+  /** Extra folders with console games, read from the emulators' own settings. */
+  romDirs?: string[]
 }
 
 export interface ScanError {

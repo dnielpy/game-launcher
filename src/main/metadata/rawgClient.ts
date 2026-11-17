@@ -102,8 +102,9 @@ export class RawgClient {
     return response.json()
   }
 
-  async search(term: string): Promise<RawgSearchItem[]> {
-    return parseRawgSearch(await this.json('/games', { search: term, page_size: '8', platforms: '4' }))
+  /** RAWG platform ids: 4 is PC, 7 is Nintendo Switch. */
+  async search(term: string, platform: 'pc' | 'switch' = 'pc'): Promise<RawgSearchItem[]> {
+    return parseRawgSearch(await this.json('/games', { search: term, page_size: '8', platforms: platform === 'switch' ? '7' : '4' }))
   }
 
   async details(id: number): Promise<RawgDetails | null> {

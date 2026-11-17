@@ -71,6 +71,7 @@ describe.skipIf(!sqliteAvailable)('MetadataService', () => {
       mediaDirectory,
       fetch: fakeSteam(requests),
       getRawgKey: () => null,
+      getSteamGridDbKey: () => null,
       onProgress: () => {},
       onGameChanged: () => {}
     })

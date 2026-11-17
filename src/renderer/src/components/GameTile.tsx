@@ -18,6 +18,9 @@ export function GameTile({ game, showPlaytime = false }: { game: Game; showPlayt
         {!running && game.needsReview && (
           <span className="absolute left-2 top-2 rounded-sm bg-warn px-1.5 py-0.5 text-[11px] font-semibold text-black">Check exe</span>
         )}
+        {!running && !game.needsReview && game.platform === 'switch' && (
+          <span className="absolute left-2 top-2 rounded-sm bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white backdrop-blur">Switch</span>
+        )}
         {game.favorite && (
           <span className="absolute right-2 top-2 text-sm text-white drop-shadow" aria-label="Favorite">
             ★

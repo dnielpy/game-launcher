@@ -7,6 +7,7 @@ import { pickExecutable, workingDirFor } from './executablePicker'
 import { isExcludedFolderName } from './exclusions'
 import { directorySize, isDirectory, isSameOrInside, pathKey, readDirSafe, realPathSafe, withTimeout } from './fsUtils'
 import { cleanDisplayTitle, cleanSearchTitle, normalizeForComparison } from './nameCleaner'
+import { findRoms } from './romScanner'
 import { matchTool } from './toolCatalog'
 import { readEpicLibrary } from './sources/epic'
 import { readUninstallEntries } from './sources/registry'
@@ -110,7 +111,11 @@ export class ScanEngine {
     await this.scanShortcutTargets(this.input.shortcuts)
     await this.addLauncherEntries(launcherEntries)
 
-    const games = mergeDuplicates(this.collapseNested([...this.games.values()])).map(applyToolCatalog)
+    const excluded = this.input.excludePaths ?? []
+    const roms = await this.findConsoleGames(reachableRoots, excluded)
+    const games = [...mergeDuplicates(this.collapseNested([...this.games.values()])).map(applyToolCatalog), ...roms].filter(
+      (game) => !excluded.some((path) => isSameOrInside(game.installPath, path))
+    )
     this.report('done', `Found ${games.length} games`, true)
 
     return {
@@ -121,6 +126,23 @@ export class ScanEngine {
       reachableRoots,
       foldersVisited: this.foldersVisited
     }
+  }
+
+  /** Console game files (Switch .nsp) inside the games locations and the emulators' own game folders. */
+  private async findConsoleGames(reachableRoots: string[], excluded: string[]): Promise<ScanCandidate[]> {
+    const platforms = this.input.romPlatforms ?? []
+    if (platforms.length === 0) return []
+    const gameRoots = this.input.roots.filter((root) => root.category === 'games' && reachableRoots.includes(root.path)).map((root) => root.path)
+    const dirs = [...gameRoots, ...(this.input.romDirs ?? [])]
+    this.report('folders', 'Looking for Nintendo Switch games', true)
+    return findRoms(dirs, platforms, {
+      excludePaths: excluded,
+      isCancelled: () => this.signal?.aborted === true,
+      onDirectory: (dir) => {
+        this.foldersVisited++
+        this.report('folders', 'Looking for Nintendo Switch games', false, dir)
+      }
+    })
   }
 
   // ---------------------------------------------------------------- walking

@@ -1,5 +1,5 @@
 import path from 'node:path'
-import type { GameStatus, LaunchTarget, ManualField } from '@shared/types'
+import type { GamePlatform, GameStatus, LaunchTarget, ManualField } from '@shared/types'
 import { pathKey } from './fsUtils'
 import type { ScanCandidate } from './types'
 
@@ -12,6 +12,8 @@ export interface StoredGame {
   launch: LaunchTarget | null
   exeSizeBytes: number | null
   manualFields: ManualField[]
+  /** Missing means a Windows game. */
+  platform?: GamePlatform
 }
 
 export interface ReconcilePlan {
@@ -35,6 +37,10 @@ function candidateExe(candidate: ScanCandidate): { name: string; size: number } 
 }
 
 function isSameGame(stored: StoredGame, candidate: ScanCandidate): boolean {
+  // A console game file that was moved keeps its file name.
+  if (stored.launch?.type === 'rom' || candidate.launch?.type === 'rom') {
+    return stored.launch?.type === 'rom' && candidate.launch?.type === 'rom' && stored.folderName.toLowerCase() === candidate.folderName.toLowerCase()
+  }
   const storedExe = exeName(stored.launch)
   const found = candidateExe(candidate)
   if (storedExe && found && storedExe === found.name && stored.exeSizeBytes && stored.exeSizeBytes === found.size) {

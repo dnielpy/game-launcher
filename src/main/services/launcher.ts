@@ -21,6 +21,7 @@ export async function launchGame(game: Game): Promise<void> {
     await shell.openExternal(launch.uri)
     return
   }
+  if (launch.type === 'rom') throw new Error('Console games start through their emulator')
 
   const kind = launchKind(launch.exePath)
   if (kind === 'script') {
@@ -42,6 +43,11 @@ export async function launchGame(game: Game): Promise<void> {
     const shellError = await shell.openPath(launch.exePath)
     if (shellError) throw new Error(shellError)
   }
+}
+
+/** Starts a program with the given arguments, without a shell. */
+export async function launchExecutable(exePath: string, args: string[], workingDir: string): Promise<void> {
+  await spawnDetached(exePath, args, workingDir, false)
 }
 
 export type LaunchKind = 'exe' | 'script' | 'other'

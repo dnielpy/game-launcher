@@ -10,6 +10,7 @@ import { handleMediaProtocol, registerMediaScheme } from './mediaProtocol'
 import { MetadataService } from './metadata/metadataService'
 import { gameMediaDirectory, iconsDirectory } from './services/icons'
 import { PlaytimeTracker } from './services/playtime'
+import { EmulationService } from './services/emulation'
 import { ProfileService } from './services/profile'
 import { ScanService } from './services/scanService'
 import { SettingsService } from './services/settings'
@@ -78,6 +79,7 @@ if (!hasLock) {
     const db = openDatabase(path.join(app.getPath('userData'), 'library.db'))
     const repository = new Repository(db)
     const settings = new SettingsService(repository)
+    const emulation = new EmulationService(repository)
 
     // Many games change at once while covers download; the renderer refreshes at most a few times a second.
     let changeTimer: NodeJS.Timeout | null = null
@@ -95,6 +97,7 @@ if (!hasLock) {
       mediaDirectory: gameMediaDirectory(),
       fetch: (url, init) => net.fetch(url, { headers: { 'User-Agent': `GameLauncher/${app.getVersion()}`, ...init?.headers } }),
       getRawgKey: () => settings.getRawgKey(),
+      getSteamGridDbKey: () => settings.getSteamGridDbKey(),
       onProgress: (progress) => send(IpcChannels.metadataProgress, progress),
       onGameChanged: notifyLibraryChanged
     })
@@ -102,14 +105,14 @@ if (!hasLock) {
       onProgress: (progress) => send(IpcChannels.scanProgress, progress),
       onFinished: (result) => send(IpcChannels.scanFinished, result),
       onSaved: () => void metadata.runPending()
-    })
+    }, emulation)
 
     const profile = new ProfileService(repository, path.join(app.getPath('userData'), 'profile'))
     const backup = new BackupService(repository, profile, { games: gameMediaDirectory(), icons: iconsDirectory() }, app.getVersion())
     const updates = new UpdateService((status) => send(IpcChannels.updatesStatus, status))
 
     handleMediaProtocol({ icons: iconsDirectory(), games: gameMediaDirectory(), profile: profile.directory })
-    registerIpcHandlers({ repository, scanService, metadata, playtime, settings, updates, profile, backup, notifyLibraryChanged })
+    registerIpcHandlers({ repository, scanService, metadata, playtime, settings, updates, profile, backup, emulation, notifyLibraryChanged })
     updates.startSchedule()
     mainWindow = createWindow()
 

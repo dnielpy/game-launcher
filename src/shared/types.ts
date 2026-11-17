@@ -22,9 +22,16 @@ export interface LibraryRoot {
   lastScannedAt: string | null
 }
 
+/** Consoles whose games Orus can find as files and start through an emulator. */
+export type EmulatedPlatform = 'switch'
+/** 'pc' for Windows games; the rest are emulated consoles. */
+export type GamePlatform = 'pc' | EmulatedPlatform
+
 export type LaunchTarget =
   | { type: 'exe'; exePath: string; args: string; workingDir: string }
   | { type: 'uri'; uri: string }
+  /** A console game file, started with the emulator chosen for its platform. */
+  | { type: 'rom'; romPath: string; platform: EmulatedPlatform }
 
 export type GameStatus = 'installed' | 'missing' | 'unavailable'
 
@@ -34,7 +41,7 @@ export interface ExecutableCandidate {
   sizeBytes: number
 }
 
-export type MetadataSource = 'steam' | 'rawg'
+export type MetadataSource = 'steam' | 'rawg' | 'steamgriddb'
 
 /** Information about a game downloaded from a public catalog. */
 export interface GameMetadata {
@@ -72,6 +79,7 @@ export interface Game {
   launch: LaunchTarget | null
   sources: DetectionSource[]
   category: GameCategory
+  platform: GamePlatform
   engine: GameEngine
   confidence: number
   needsReview: boolean
@@ -133,8 +141,31 @@ export interface MetadataCandidate {
   released: string | null
 }
 
+export type SkinId = 'orus' | 'cinema' | 'mosaic'
+
 export interface SettingsState {
   hasRawgKey: boolean
+  hasSteamGridDbKey: boolean
+  skin: SkinId
+}
+
+/** A folder (or file) the scan never looks at. */
+export interface ExcludedPath {
+  id: number
+  path: string
+  /** Name of the game that was removed, when the exclusion came from removing it. */
+  label: string | null
+  addedAt: string
+}
+
+export interface EmulationPlatformState {
+  platform: EmulatedPlatform
+  enabled: boolean
+  /** Emulator chosen by the user (a game id in the Emulators section); null picks one automatically. */
+  emulatorId: number | null
+  /** The emulator that will be used right now, after the automatic pick. */
+  resolvedEmulatorId: number | null
+  gameCount: number
 }
 
 export interface ScanSummary {

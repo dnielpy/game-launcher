@@ -1,10 +1,48 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Game, GamePatch, MetadataCandidate } from '@shared/types'
 import { fileName, formatBytes, formatPlaytime, formatRelative, logoUrl, mediaUrl } from '../format'
+import { removeFromLibrary } from '../removeGame'
 import { errorMessage, useLauncher } from '../store'
 import { Cover, Hero } from './GameArt'
 
 type Tab = 'about' | 'manage'
+
+const SOURCE_NAMES: Record<string, string> = { steam: 'the Steam store', rawg: 'RAWG', steamgriddb: 'SteamGridDB' }
+const CATALOG_NAMES: Record<string, string> = { steam: 'Steam', rawg: 'RAWG', steamgriddb: 'SteamGridDB' }
+
+/** How a console game starts: through the emulator picked in Settings. */
+function EmulatorInfo({ game }: { game: Game }) {
+  const { games, openSettings, select } = useLauncher()
+  const [emulatorId, setEmulatorId] = useState<number | null>(null)
+  useEffect(() => {
+    if (game.launch?.type === 'rom') void window.api.emulation.get(game.launch.platform).then((state) => setEmulatorId(state.resolvedEmulatorId))
+  }, [game.launch])
+  const emulator = games.find((item) => item.id === emulatorId)
+  return (
+    <section className="flex flex-col gap-2">
+      <h3 className="text-sm font-semibold">What starts the game</h3>
+      <p className="text-sm text-muted">
+        {emulator ? (
+          <>
+            Opens in <span className="text-ink">{emulator.title}</span>, straight into the game.
+          </>
+        ) : (
+          'No Nintendo Switch emulator yet. Add yuzu, Ryujinx, Citron or another one in Emulators.'
+        )}
+      </p>
+      <button
+        type="button"
+        onClick={() => {
+          select(null)
+          openSettings('emulation')
+        }}
+        className="self-start text-sm font-semibold text-accent-bright underline-offset-4 hover:underline"
+      >
+        Choose the emulator…
+      </button>
+    </section>
+  )
+}
 
 const SOURCE_LABELS: Record<string, string> = {
   folder: 'a games folder',
@@ -154,7 +192,7 @@ function AboutTab({ game }: { game: Game }) {
             onClick={() => void window.api.openExternal(metadata.storeUrl!)}
             className="self-start text-left text-xs text-muted underline-offset-4 hover:text-ink hover:underline"
           >
-            Details and images from {metadata.source === 'steam' ? 'the Steam store' : 'RAWG'}
+            Details and images from {SOURCE_NAMES[metadata.source]}
           </button>
         )}
       </dl>
@@ -177,7 +215,7 @@ function MatchSearch({ game, onDone }: { game: Game; onDone: () => void }) {
   async function search() {
     setBusy('search')
     try {
-      setResults(await window.api.metadata.search(query))
+      setResults(await window.api.metadata.search(query, game.id))
     } catch (error) {
       setError(errorMessage(error))
     } finally {
@@ -237,7 +275,11 @@ function MatchSearch({ game, onDone }: { game: Game; onDone: () => void }) {
                   )}
                   <span className="min-w-0 flex-1 truncate">{candidate.name}</span>
                   <span className="shrink-0 text-xs text-muted">
-                    {busy === key ? 'Loading' : candidate.source === 'steam' ? 'Steam' : `RAWG${candidate.released ? `, ${candidate.released.slice(0, 4)}` : ''}`}
+                    {busy === key
+                      ? 'Loading'
+                      : candidate.source === 'steam'
+                        ? 'Steam'
+                        : `${candidate.source === 'rawg' ? 'RAWG' : 'SteamGridDB, artwork only'}${candidate.released ? `, ${candidate.released.slice(0, 4)}` : ''}`}
                   </span>
                 </button>
               </li>
@@ -321,7 +363,7 @@ function ManageTab({ game }: { game: Game }) {
         <div className="flex items-baseline justify-between">
           <h3 className="text-sm font-semibold">Cover and details</h3>
           <span className="text-xs text-muted">
-            {game.metadata ? `Matched to ${game.metadata.name} on ${game.metadata.source === 'steam' ? 'Steam' : 'RAWG'}` : 'No match yet'}
+            {game.metadata ? `Matched to ${game.metadata.name} on ${CATALOG_NAMES[game.metadata.source]}` : 'No match yet'}
           </span>
         </div>
         {searching ? (
@@ -349,13 +391,20 @@ function ManageTab({ game }: { game: Game }) {
         <h3 className="text-sm font-semibold">Location</h3>
         <div className="flex items-center gap-3">
           <span className="min-w-0 flex-1 break-all rounded-md bg-canvas px-3 py-2 text-sm text-muted">{game.installPath}</span>
-          <button type="button" disabled={relocating} onClick={() => void relocate()} className={`${secondary} shrink-0`}>
-            {relocating ? 'Checking folder' : 'Change location…'}
-          </button>
+          {game.launch?.type !== 'rom' && (
+            <button type="button" disabled={relocating} onClick={() => void relocate()} className={`${secondary} shrink-0`}>
+              {relocating ? 'Checking folder' : 'Change location…'}
+            </button>
+          )}
         </div>
-        <p className="text-xs text-muted">Moved the game to another folder or drive? Point Orus to its new folder. Your hours, favorites and cover stay.</p>
+        <p className="text-xs text-muted">
+          {game.launch?.type === 'rom'
+            ? 'Moved the file? Scan again and Orus finds it by its name, keeping your hours.'
+            : 'Moved the game to another folder or drive? Point Orus to its new folder. Your hours, favorites and cover stay.'}
+        </p>
       </section>
 
+      {game.launch?.type === 'rom' ? <EmulatorInfo game={game} /> : (
       <section className="flex flex-col gap-2">
         <h3 className="text-sm font-semibold">What starts the game</h3>
         {game.launch?.type === 'uri' && <p className="text-xs text-muted">Right now it starts through its own launcher. Pick a file below to start it directly.</p>}
@@ -389,6 +438,7 @@ function ManageTab({ game }: { game: Game }) {
         </button>
         <p className="text-xs text-muted">Any file works: an .exe, a .bat or .cmd script, or a shortcut.</p>
       </section>
+      )}
 
       {game.launch?.type === 'exe' && (
         <section className="flex flex-col gap-2">
@@ -405,7 +455,7 @@ function ManageTab({ game }: { game: Game }) {
       )}
 
       <section className="col-span-2 flex items-center justify-between border-t border-line pt-5 text-sm text-muted">
-        <span>Found through {game.sources.map((source) => SOURCE_LABELS[source] ?? source).join(', ')}.</span>
+        <span>{game.launch?.type === 'rom' ? 'Nintendo Switch game file.' : `Found through ${game.sources.map((source) => SOURCE_LABELS[source] ?? source).join(', ')}.`}</span>
         <div className="flex gap-4">
           <button type="button" onClick={() => void window.api.library.openFolder(game.id)} className="hover:text-ink">
             Open folder
@@ -419,6 +469,9 @@ function ManageTab({ game }: { game: Game }) {
             className="hover:text-ink"
           >
             {game.hidden ? 'Show in library' : 'Hide from library'}
+          </button>
+          <button type="button" onClick={() => void removeFromLibrary(game)} className="hover:text-danger">
+            Remove from library
           </button>
         </div>
       </section>
@@ -436,7 +489,7 @@ function NotInstalledNotice({ game }: { game: Game }) {
           ? 'This game is not on your PC right now. Your hours, cover and details are kept. If you moved it, point Orus to its new folder.'
           : 'The drive with this game is not connected. Your hours, cover and details are kept.'}
       </span>
-      {game.status === 'missing' && (
+      {game.status === 'missing' && game.launch?.type !== 'rom' && (
         <button type="button" disabled={busy} onClick={() => void relocate()} className="shrink-0 rounded-md bg-raised px-4 py-2 font-semibold hover:bg-line disabled:opacity-50">
           {busy ? 'Checking folder' : 'Locate game…'}
         </button>
@@ -466,7 +519,7 @@ export function GameModal() {
 
   const metadata = game.metadata
   const logo = logoUrl(game)
-  const subtitle = [metadata?.developers[0], metadata?.releaseDate].filter(Boolean).join(', ')
+  const subtitle = [game.platform === 'switch' ? 'Nintendo Switch' : null, metadata?.developers[0], metadata?.releaseDate].filter(Boolean).join(', ')
   const rating = metadata?.rating !== null && metadata?.rating !== undefined ? `${metadata.rating}%` : null
 
   async function toggleFavorite() {

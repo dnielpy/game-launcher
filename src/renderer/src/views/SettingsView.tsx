@@ -2,6 +2,8 @@ import type { ReactNode } from 'react'
 import { AboutSection } from '../components/AboutSection'
 import { CoversSection } from '../components/CoversSection'
 import { DataSection } from '../components/DataSection'
+import { EmulationSection } from '../components/EmulationSection'
+import { SkinsSection } from '../components/SkinsSection'
 import { LocationsSection } from '../components/LocationsSection'
 import { UpdatesSection } from '../components/UpdatesSection'
 import { useLauncher, type SettingsModule } from '../store'
@@ -15,6 +17,13 @@ interface ModuleEntry {
 }
 
 const MODULES: ModuleEntry[] = [
+  {
+    id: 'appearance',
+    title: 'Skins',
+    description: 'Change how Orus looks: Orus, Cinema or Mosaic',
+    icon: 'M12 3a9 9 0 1 0 0 18c1 0 1.5-.7 1.5-1.5 0-.4-.2-.8-.4-1.1-.3-.3-.4-.6-.4-1 0-.8.7-1.5 1.5-1.5H16a5 5 0 0 0 5-5c0-4.4-4-7.9-9-7.9zM7.5 12h.01M9.5 8h.01M14.5 8h.01',
+    render: () => <SkinsSection />
+  },
   {
     id: 'updates',
     title: 'Updates',
@@ -30,9 +39,16 @@ const MODULES: ModuleEntry[] = [
     render: () => <LocationsSection />
   },
   {
+    id: 'emulation',
+    title: 'Emulated games',
+    description: 'Find Nintendo Switch games and play them with your emulator',
+    icon: 'M8 4h3v16H8a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4zM13 4h3a4 4 0 0 1 4 4v8a4 4 0 0 1-4 4h-3z',
+    render: () => <EmulationSection />
+  },
+  {
     id: 'covers',
     title: 'Covers and game details',
-    description: 'Where box art, banners and ratings come from',
+    description: 'Where box art, banners and ratings come from, and the optional keys',
     icon: 'M4 5h16v14H4zM4 15l4-4 4 4 3-3 5 5',
     render: () => <CoversSection />
   },

@@ -114,5 +114,18 @@ export const MIGRATIONS: { version: number; sql: string }[] = [
       ALTER TABLE games_new RENAME TO games;
       CREATE INDEX games_status ON games(status);
     `
+  },
+  {
+    // Console games found as files (Nintendo Switch .nsp) and folders the scan must skip.
+    version: 4,
+    sql: `
+      ALTER TABLE games ADD COLUMN platform TEXT NOT NULL DEFAULT 'pc';
+      CREATE TABLE excluded_paths (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        path TEXT NOT NULL UNIQUE COLLATE NOCASE,
+        label TEXT,
+        added_at TEXT NOT NULL
+      );
+    `
   }
 ]

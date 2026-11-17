@@ -1,8 +1,16 @@
 import { create } from 'zustand'
-import type { Game, LibraryRoot, MetadataProgress, PendingInstaller, ProfileState, ScanProgress, ScanSummary, UpdateStatus } from '@shared/types'
+import type { Game, LibraryRoot, MetadataProgress, PendingInstaller, ProfileState, ScanProgress, ScanSummary, SettingsState, SkinId, UpdateStatus } from '@shared/types'
 
 export type View = 'home' | 'library' | 'emulators' | 'tools' | 'settings'
-export type SettingsModule = 'updates' | 'locations' | 'covers' | 'data' | 'about'
+export type SettingsModule = 'appearance' | 'updates' | 'locations' | 'emulation' | 'covers' | 'data' | 'about'
+
+export interface ConfirmRequest {
+  title: string
+  message: string
+  confirmLabel: string
+  danger?: boolean
+  resolve: (confirmed: boolean) => void
+}
 
 interface LauncherState {
   view: View
@@ -22,6 +30,13 @@ interface LauncherState {
   update: UpdateStatus | null
   profile: ProfileState | null
   profileOpen: boolean
+  skin: SkinId
+  settings: SettingsState | null
+  confirmRequest: ConfirmRequest | null
+  /** Shows a confirmation dialog; resolves true when the user agrees. */
+  confirm: (request: Omit<ConfirmRequest, 'resolve'>) => Promise<boolean>
+  setSkin: (skin: SkinId) => Promise<void>
+  setSettings: (settings: SettingsState) => void
   error: string | null
   loaded: boolean
   /** Settings module open right now; null shows the list of modules. */
@@ -56,6 +71,31 @@ export const useLauncher = create<LauncherState>((set, get) => ({
   update: null,
   profile: null,
   profileOpen: false,
+  skin: 'orus',
+  settings: null,
+  confirmRequest: null,
+  confirm: (request) =>
+    new Promise<boolean>((resolve) =>
+      set({
+        confirmRequest: {
+          ...request,
+          resolve: (confirmed) => {
+            set({ confirmRequest: null })
+            resolve(confirmed)
+          }
+        }
+      })
+    ),
+  setSkin: async (skin) => {
+    applySkin(skin)
+    set({ skin })
+    const settings = await window.api.settings.setSkin(skin)
+    set({ settings })
+  },
+  setSettings: (settings) => {
+    applySkin(settings.skin)
+    set({ settings, skin: settings.skin })
+  },
   error: null,
   loaded: false,
 
@@ -85,6 +125,11 @@ export const useLauncher = create<LauncherState>((set, get) => ({
   dismissError: () => set({ error: null }),
   setError: (message) => set({ error: message })
 }))
+
+/** The skin is a data attribute on <html>: colors, type and shapes switch in CSS, the layout in App. */
+export function applySkin(skin: SkinId): void {
+  document.documentElement.dataset['skin'] = skin
+}
 
 export function errorMessage(error: unknown): string {
   const raw = error instanceof Error ? error.message : String(error)
@@ -118,6 +163,7 @@ export function connectEvents(): () => void {
   const offUpdates = window.api.updates.onStatus((update) => useLauncher.setState({ update }))
   void window.api.updates.get().then((update) => useLauncher.setState({ update }))
   void window.api.profile.get().then((profile) => useLauncher.setState({ profile }))
+  void window.api.settings.get().then((settings) => useLauncher.getState().setSettings(settings))
   return () => {
     offUpdates()
     offProgress()

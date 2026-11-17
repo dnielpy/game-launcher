@@ -1,19 +1,22 @@
 import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { rmSync } from 'node:fs'
 import path from 'node:path'
 import { z } from 'zod'
 import { IpcChannels } from '@shared/ipc'
-import type { GamePatch, ManualField } from '@shared/types'
+import type { Game, GamePatch, ManualField } from '@shared/types'
 import type { BackupService } from './backup/backupService'
 import type { Repository } from './db/repository'
 import type { MetadataService } from './metadata/metadataService'
-import { fileSize, isDirectory } from './scanner/fsUtils'
+import { fileSize, isDirectory, isSameOrInside } from './scanner/fsUtils'
 import { cleanDisplayTitle } from './scanner/nameCleaner'
 import { matchTool } from './scanner/toolCatalog'
 import { extractIcon } from './services/icons'
-import { launchGame, openGameFolder } from './services/launcher'
+import { launchExecutable, launchGame, openGameFolder } from './services/launcher'
 import { planRelocation } from './services/relocate'
 import type { PlaytimeTracker } from './services/playtime'
 import type { ProfileService } from './services/profile'
+import { romLaunchArgs, type EmulationService } from './services/emulation'
+import { gameMediaDirectory, iconsDirectory } from './services/icons'
 import type { ScanService } from './services/scanService'
 import type { SettingsService } from './services/settings'
 import type { UpdateService } from './updates/updateService'
@@ -27,13 +30,14 @@ export interface IpcServices {
   updates: UpdateService
   profile: ProfileService
   backup: BackupService
+  emulation: EmulationService
   notifyLibraryChanged: () => void
 }
 
 /** The only e-mail address the app opens, from the About page. */
 const CONTACT_EMAIL = 'dnielquesada@gmail.com'
 
-const ALLOWED_EXTERNAL_HOSTS = ['store.steampowered.com', 'rawg.io', 'www.rawg.io', 'github.com']
+const ALLOWED_EXTERNAL_HOSTS = ['store.steampowered.com', 'rawg.io', 'www.rawg.io', 'github.com', 'www.steamgriddb.com']
 
 const idSchema = z.number().int().positive()
 const patchSchema = z
@@ -47,11 +51,22 @@ const patchSchema = z
   })
   .strict()
 
-const sourceSchema = z.enum(['steam', 'rawg'])
+const sourceSchema = z.enum(['steam', 'rawg', 'steamgriddb'])
+const platformSchema = z.enum(['switch'])
+const skinSchema = z.enum(['orus', 'cinema', 'mosaic'])
 const externalIdSchema = z.string().regex(/^\d{1,12}$/)
 
 export function registerIpcHandlers(services: IpcServices): void {
-  const { repository, scanService, metadata, playtime, settings, updates, profile, backup, notifyLibraryChanged } = services
+  const { repository, scanService, metadata, playtime, settings, updates, profile, backup, emulation, notifyLibraryChanged } = services
+
+  const settingsState = () => ({ hasRawgKey: settings.getRawgKey() !== null, hasSteamGridDbKey: settings.getSteamGridDbKey() !== null, skin: settings.getSkin() })
+
+  /** Removes a game and everything Orus stored for it: sessions, covers and icon. */
+  function removeGame(game: Game): void {
+    repository.deleteGames([game.id])
+    rmSync(path.join(gameMediaDirectory(), String(game.id)), { recursive: true, force: true })
+    if (game.iconPath) rmSync(path.join(iconsDirectory(), path.basename(game.iconPath)), { force: true })
+  }
 
   ipcMain.handle(IpcChannels.updatesGet, () => updates.getStatus())
   ipcMain.handle(IpcChannels.updatesCheck, () => updates.check())
@@ -61,7 +76,11 @@ export function registerIpcHandlers(services: IpcServices): void {
   ipcMain.handle(IpcChannels.updatesCancel, () => updates.cancel())
   ipcMain.handle(IpcChannels.updatesInstall, () => updates.install())
 
-  ipcMain.handle(IpcChannels.libraryList, () => repository.listGames())
+  // Games of a console that is turned off stay stored but out of sight.
+  ipcMain.handle(IpcChannels.libraryList, () => {
+    const enabled = new Set<string>(['pc', ...emulation.enabledPlatforms()])
+    return repository.listGames().filter((game) => enabled.has(game.platform))
+  })
 
   ipcMain.handle(IpcChannels.libraryUpdate, (_event, rawId: unknown, rawPatch: unknown) => {
     const id = idSchema.parse(rawId)
@@ -110,6 +129,22 @@ export function registerIpcHandlers(services: IpcServices): void {
   ipcMain.handle(IpcChannels.libraryLaunch, async (_event, rawId: unknown) => {
     const game = repository.getGame(idSchema.parse(rawId))
     if (!game) throw new Error('Game not found')
+    if (game.launch?.type === 'rom') {
+      const emulator = emulation.resolveEmulator(game.launch.platform)
+      if (!emulator || emulator.launch?.type !== 'exe') {
+        throw new Error('Add a Nintendo Switch emulator (yuzu, Ryujinx, Citron...) in Emulators to play this game.')
+      }
+      const emulatorExe = emulator.launch.exePath
+      // Play time follows the emulator's process while it runs this game.
+      await playtime.track({ ...game, launch: { ...emulator.launch, args: '' }, exeCandidates: [{ path: emulatorExe, score: 100, sizeBytes: 0 }] })
+      try {
+        await launchExecutable(emulatorExe, romLaunchArgs(emulatorExe, game.launch.romPath), path.dirname(emulatorExe))
+      } catch (error) {
+        playtime.untrack(game.id)
+        throw error
+      }
+      return
+    }
     // Watch first: the process list taken here is what "already running before the launch" means.
     await playtime.track(game)
     try {
@@ -153,6 +188,53 @@ export function registerIpcHandlers(services: IpcServices): void {
     if (result.canceled || !filePath) return null
     repository.setLaunchFile(game.id, filePath, await fileSize(filePath))
     return repository.getGame(game.id)
+  })
+
+  ipcMain.handle(IpcChannels.libraryDelete, (_event, rawId: unknown) => {
+    const game = repository.getGame(idSchema.parse(rawId))
+    if (!game) return
+    repository.addExcludedPath(game.installPath, game.title)
+    removeGame(game)
+  })
+
+  ipcMain.handle(IpcChannels.exclusionsList, () => repository.listExcludedPaths())
+
+  ipcMain.handle(IpcChannels.exclusionsPick, async (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const options = { title: 'Choose a folder Orus should skip', properties: ['openDirectory' as const] }
+    const result = window ? await dialog.showOpenDialog(window, options) : await dialog.showOpenDialog(options)
+    const selected = result.filePaths[0]
+    return result.canceled || !selected ? null : selected
+  })
+
+  ipcMain.handle(IpcChannels.exclusionsAdd, async (_event, rawPath: unknown) => {
+    const target = z.string().min(3).max(1000).parse(rawPath)
+    if (!(await isDirectory(target))) throw new Error('That folder does not exist')
+    repository.addExcludedPath(target)
+    for (const game of repository.listGames()) {
+      if (isSameOrInside(game.installPath, target)) removeGame(game)
+    }
+  })
+
+  ipcMain.handle(IpcChannels.exclusionsRemove, (_event, rawId: unknown) => {
+    repository.removeExcludedPath(idSchema.parse(rawId))
+  })
+
+  ipcMain.handle(IpcChannels.emulationGet, (_event, rawPlatform: unknown) => emulation.state(platformSchema.parse(rawPlatform)))
+
+  ipcMain.handle(IpcChannels.emulationSetEnabled, (_event, rawPlatform: unknown, rawEnabled: unknown) => {
+    const platform = platformSchema.parse(rawPlatform)
+    const enabled = z.boolean().parse(rawEnabled)
+    emulation.setEnabled(platform, enabled)
+    notifyLibraryChanged()
+    if (enabled) void scanService.start()
+    return emulation.state(platform)
+  })
+
+  ipcMain.handle(IpcChannels.emulationSetEmulator, (_event, rawPlatform: unknown, rawId: unknown) => {
+    const platform = platformSchema.parse(rawPlatform)
+    emulation.setEmulator(platform, idSchema.nullable().parse(rawId))
+    return emulation.state(platform)
   })
 
   ipcMain.handle(IpcChannels.libraryRelocate, async (event, rawId: unknown) => {
@@ -220,7 +302,11 @@ export function registerIpcHandlers(services: IpcServices): void {
     repository.setRootEnabled(idSchema.parse(rawId), z.boolean().parse(rawEnabled))
   })
 
-  ipcMain.handle(IpcChannels.metadataSearch, (_event, rawQuery: unknown) => metadata.search(z.string().max(200).parse(rawQuery)))
+  ipcMain.handle(IpcChannels.metadataSearch, (_event, rawQuery: unknown, rawGameId: unknown) => {
+    const gameId = idSchema.optional().parse(rawGameId)
+    const platform = gameId !== undefined ? (repository.getGame(gameId)?.platform ?? 'pc') : 'pc'
+    return metadata.search(z.string().max(200).parse(rawQuery), platform)
+  })
 
   ipcMain.handle(IpcChannels.metadataAssign, async (_event, rawId: unknown, rawSource: unknown, rawExternalId: unknown) => {
     const id = idSchema.parse(rawId)
@@ -242,7 +328,7 @@ export function registerIpcHandlers(services: IpcServices): void {
 
   ipcMain.handle(IpcChannels.metadataGetProgress, () => metadata.getProgress())
 
-  ipcMain.handle(IpcChannels.settingsGet, () => ({ hasRawgKey: settings.getRawgKey() !== null }))
+  ipcMain.handle(IpcChannels.settingsGet, () => settingsState())
 
   ipcMain.handle(IpcChannels.settingsSetRawgKey, (_event, rawKey: unknown) => {
     const key = z.string().max(100).nullable().parse(rawKey)
@@ -252,7 +338,22 @@ export function registerIpcHandlers(services: IpcServices): void {
       repository.resetNotFound()
       void metadata.runPending()
     }
-    return { hasRawgKey: settings.getRawgKey() !== null }
+    return settingsState()
+  })
+
+  ipcMain.handle(IpcChannels.settingsSetSteamGridDbKey, (_event, rawKey: unknown) => {
+    const key = z.string().max(100).nullable().parse(rawKey)
+    settings.setSteamGridDbKey(key)
+    if (key) {
+      repository.resetNotFound()
+      void metadata.runPending()
+    }
+    return settingsState()
+  })
+
+  ipcMain.handle(IpcChannels.settingsSetSkin, (_event, rawSkin: unknown) => {
+    settings.setSkin(skinSchema.parse(rawSkin))
+    return settingsState()
   })
 
   ipcMain.handle(IpcChannels.profileGet, () => profile.get())
