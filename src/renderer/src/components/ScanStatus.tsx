@@ -1,8 +1,8 @@
 import { useLauncher } from '../store'
 
-/** Header status: background scans, cover downloads and a pending app update. */
+/** Header status: background scans, cover downloads and a pending app update. Nothing when all is quiet. */
 export function ScanStatus() {
-  const { scanning, progress, metadataProgress, lastSummary, startScan, overlayVisible, update, openSettings } = useLauncher()
+  const { scanning, progress, metadataProgress, overlayVisible, update, openSettings } = useLauncher()
   const fetching = metadataProgress?.running === true
   const updateReady = update?.state === 'available' || update?.state === 'downloaded'
 
@@ -31,22 +31,6 @@ export function ScanStatus() {
     )
   }
 
-  return (
-    <div className="flex items-center gap-4">
-      {updateButton}
-      {lastSummary && !scanning && (
-        <span className="text-xs text-muted">
-          Last scan found {lastSummary.added} new {lastSummary.added === 1 ? 'game' : 'games'}
-        </span>
-      )}
-      <button
-        type="button"
-        disabled={scanning}
-        onClick={() => void startScan(true)}
-        className="rounded-md bg-raised px-4 py-2 text-sm font-semibold text-ink hover:bg-line disabled:opacity-50"
-      >
-        Scan again
-      </button>
-    </div>
-  )
+  // Scanning by hand lives in Settings; the header only shows what is going on.
+  return updateButton
 }

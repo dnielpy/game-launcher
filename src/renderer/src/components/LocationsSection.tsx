@@ -131,8 +131,38 @@ function RootRow({ root }: { root: LibraryRoot }) {
 }
 
 /** Settings section: the folders scanned for games. */
+function ScanModeRow() {
+  const { settings, setSettings, setError } = useLauncher()
+  const automatic = settings?.scanMode !== 'manual'
+  async function change(next: boolean) {
+    try {
+      setSettings(await window.api.settings.setScanMode(next ? 'auto' : 'manual'))
+    } catch (error) {
+      setError(errorMessage(error))
+    }
+  }
+  return (
+    <div className="flex items-center gap-4 rounded-md bg-canvas px-5 py-4">
+      <div className="min-w-0 flex-1">
+        <div className="font-semibold">Search my whole PC</div>
+        <div className="text-sm text-muted">
+          {automatic
+            ? 'Common game folders on every drive, installed programs, Steam, Epic and shortcuts, plus your folders.'
+            : 'Off: only the folders you added below are scanned.'}
+        </div>
+      </div>
+      <label className="relative inline-flex cursor-pointer items-center">
+        <input type="checkbox" className="peer sr-only" checked={automatic} onChange={(event) => void change(event.target.checked)} aria-label="Search my whole PC" />
+        <span className="h-6 w-11 rounded-full bg-raised transition-colors peer-checked:bg-accent" />
+        <span className="absolute left-1 h-4 w-4 rounded-full bg-ink transition-transform duration-200 peer-checked:translate-x-5" />
+      </label>
+    </div>
+  )
+}
+
 export function LocationsSection() {
-  const { roots, refreshRoots, startScan } = useLauncher()
+  const { roots, refreshRoots, startScan, settings } = useLauncher()
+  const automatic = settings?.scanMode !== 'manual'
   const userRoots = roots.filter((root) => root.kind === 'user')
   const autoRoots = roots.filter((root) => root.kind === 'auto')
 
@@ -155,6 +185,8 @@ export function LocationsSection() {
         </button>
       </div>
 
+      <ScanModeRow />
+
       <div className="flex flex-col gap-2">
         <h3 className="text-sm font-semibold">Your folders</h3>
         {userRoots.length === 0 ? (
@@ -168,6 +200,7 @@ export function LocationsSection() {
         )}
       </div>
 
+      {automatic && (
       <div className="flex flex-col gap-2">
         <h3 className="text-sm font-semibold">Found automatically</h3>
         <p className="text-sm text-muted">Common game folders on every drive. Steam, Epic, installed programs and desktop shortcuts are always checked too.</p>
@@ -177,6 +210,7 @@ export function LocationsSection() {
           ))}
         </ul>
       </div>
+      )}
 
       <ExcludedFolders />
     </section>

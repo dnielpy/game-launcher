@@ -1,7 +1,7 @@
 import { app, utilityProcess, type UtilityProcess } from 'electron'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
-import type { LibraryRoot, ScanProgress, ScanSummary } from '@shared/types'
+import type { LibraryRoot, ScanMode, ScanProgress, ScanSummary } from '@shared/types'
 import type { Repository } from '../db/repository'
 import { log } from '../logger'
 import { isSameOrInside, pathExists } from '../scanner/fsUtils'
@@ -28,7 +28,8 @@ export class ScanService {
     private readonly repository: Repository,
     private readonly workerPath: string,
     private readonly events: ScanEvents,
-    private readonly emulation: EmulationService
+    private readonly emulation: EmulationService,
+    private readonly getScanMode: () => ScanMode = () => 'auto'
   ) {}
 
   get isRunning(): boolean {
@@ -52,16 +53,18 @@ export class ScanService {
     this.events.onProgress({ phase: 'preparing', message: 'Looking for game locations', currentPath: null, fraction: 0, foldersVisited: 0, gamesFound: 0 })
 
     try {
-      await this.syncDefaultRoots()
+      // Manual mode: only the folders the user chose. No common folders, installed programs, launchers or shortcuts.
+      const automatic = this.getScanMode() === 'auto'
+      if (automatic) await this.syncDefaultRoots()
       const romPlatforms = this.emulation.enabledPlatforms()
       const input: ScanInput = {
         roots: this.repository
           .listRoots()
-          .filter((root) => root.enabled)
+          .filter((root) => root.enabled && (automatic || root.kind === 'user'))
           .map((root) => ({ path: root.path, category: root.category })),
-        shortcuts: await readShortcuts(),
-        includeRegistry: true,
-        includeLaunchers: true,
+        shortcuts: automatic ? await readShortcuts() : [],
+        includeRegistry: automatic,
+        includeLaunchers: automatic,
         cache: this.repository.loadScanCache(),
         excludePaths: [...(app.isPackaged ? [path.dirname(app.getPath('exe'))] : []), ...this.repository.listExcludedPaths().map((entry) => entry.path)],
         romPlatforms,

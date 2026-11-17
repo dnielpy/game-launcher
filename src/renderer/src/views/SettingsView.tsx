@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
 import { AboutSection } from '../components/AboutSection'
-import { CoversSection } from '../components/CoversSection'
+import { HANDHELD_ICON } from '../components/ConsoleIcon'
 import { DataSection } from '../components/DataSection'
+import { ScanCard } from '../components/ScanCard'
 import { EmulationSection } from '../components/EmulationSection'
 import { SkinsSection } from '../components/SkinsSection'
 import { LocationsSection } from '../components/LocationsSection'
@@ -42,15 +43,8 @@ const MODULES: ModuleEntry[] = [
     id: 'emulation',
     title: 'Emulated games',
     description: 'Find Nintendo Switch games and play them with your emulator',
-    icon: 'M8 4h3v16H8a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4zM13 4h3a4 4 0 0 1 4 4v8a4 4 0 0 1-4 4h-3z',
+    icon: HANDHELD_ICON,
     render: () => <EmulationSection />
-  },
-  {
-    id: 'covers',
-    title: 'Covers and game details',
-    description: 'Where box art, banners and ratings come from, and the optional keys',
-    icon: 'M4 5h16v14H4zM4 15l4-4 4 4 3-3 5 5',
-    render: () => <CoversSection />
   },
   {
     id: 'data',
@@ -101,6 +95,7 @@ export function SettingsView() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 pb-10">
       <h1 className="font-display text-3xl font-semibold">Settings</h1>
+      <ScanCard />
       <ul className="flex flex-col divide-y divide-line overflow-hidden rounded-lg bg-surface">
         {MODULES.map((module) => (
           <li key={module.id}>
