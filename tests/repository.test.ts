@@ -152,4 +152,34 @@ describe.skipIf(!sqliteAvailable)('migration 3', () => {
     expect(repository.getGame(1)!.category).toBe('emulator')
     expect(db.pragma('foreign_key_check')).toEqual([])
   })
+
+  it('relocates a game keeping its hours and marks the location as chosen by hand', () => {
+    const repository = setup()
+    const id = repository.insertGame(candidate())
+    const session = repository.startSession(id, '2026-01-01T10:00:00.000Z')
+    repository.extendSession(session, '2026-01-01T11:00:00.000Z', 3600)
+    repository.setStatus([id], 'missing')
+
+    repository.relocateGame(id, {
+      installPath: 'E:\\Games\\Forza',
+      folderName: 'Forza',
+      launch: { type: 'exe', exePath: 'E:\\Games\\Forza\\ForzaHorizon5.exe', args: '', workingDir: 'E:\\Games\\Forza' },
+      exeCandidates: [{ path: 'E:\\Games\\Forza\\ForzaHorizon5.exe', score: 50, sizeBytes: 100 }],
+      needsReview: false
+    })
+    const game = repository.getGame(id)!
+    expect(game.installPath).toBe('E:\\Games\\Forza')
+    expect(game.status).toBe('installed')
+    expect(game.playtimeSeconds).toBe(3600)
+    expect(game.manualFields).toContain('location')
+  })
+
+  it('refuses to move a game into the folder of another one', () => {
+    const repository = setup()
+    const id = repository.insertGame(candidate())
+    repository.insertGame(candidate({ installPath: 'E:\\Games\\Taken', title: 'Taken' }))
+    expect(() =>
+      repository.relocateGame(id, { installPath: 'e:\\games\\taken', folderName: 'Taken', launch: null, exeCandidates: [], needsReview: false })
+    ).toThrow('already lives in that folder')
+  })
 })

@@ -50,9 +50,27 @@ function PlayButton({ game }: { game: Game }) {
       <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
         <path d="M7 4.5v15l12.5-7.5z" />
       </svg>
-      {running ? 'Playing now' : starting ? 'Starting' : game.status !== 'installed' ? 'Not available' : 'Play'}
+      {running ? 'Playing now' : starting ? 'Starting' : game.status === 'missing' ? 'Not installed' : game.status === 'unavailable' ? 'Drive disconnected' : 'Play'}
     </button>
   )
+}
+
+/** Asks for the game's new folder. Hours, favorites and covers stay with the game. */
+function useRelocate(game: Game) {
+  const { refresh, setError } = useLauncher()
+  const [busy, setBusy] = useState(false)
+  async function relocate() {
+    setBusy(true)
+    try {
+      await window.api.library.relocate(game.id)
+      await refresh()
+    } catch (error) {
+      setError(errorMessage(error))
+    } finally {
+      setBusy(false)
+    }
+  }
+  return { busy, relocate }
 }
 
 function AboutTab({ game }: { game: Game }) {
@@ -264,6 +282,7 @@ function ManageTab({ game }: { game: Game }) {
     }
   }
 
+  const { busy: relocating, relocate } = useRelocate(game)
   const exePath = game.launch?.type === 'exe' ? game.launch.exePath : null
   const input = 'flex-1 rounded-md border border-line bg-canvas px-3 py-2 text-sm outline-none placeholder:text-muted/60 focus:border-accent-bright'
   const secondary = 'rounded-md bg-raised px-4 py-2 text-sm hover:bg-line disabled:opacity-40'
@@ -324,6 +343,17 @@ function ManageTab({ game }: { game: Game }) {
             )}
           </div>
         )}
+      </section>
+
+      <section className="col-span-2 flex flex-col gap-2">
+        <h3 className="text-sm font-semibold">Location</h3>
+        <div className="flex items-center gap-3">
+          <span className="min-w-0 flex-1 break-all rounded-md bg-canvas px-3 py-2 text-sm text-muted">{game.installPath}</span>
+          <button type="button" disabled={relocating} onClick={() => void relocate()} className={`${secondary} shrink-0`}>
+            {relocating ? 'Checking folder' : 'Change location…'}
+          </button>
+        </div>
+        <p className="text-xs text-muted">Moved the game to another folder or drive? Point Orus to its new folder. Your hours, favorites and cover stay.</p>
       </section>
 
       <section className="flex flex-col gap-2">
@@ -392,6 +422,25 @@ function ManageTab({ game }: { game: Game }) {
           </button>
         </div>
       </section>
+    </div>
+  )
+}
+
+function NotInstalledNotice({ game }: { game: Game }) {
+  const { busy, relocate } = useRelocate(game)
+  if (game.status === 'installed') return null
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-md bg-canvas px-4 py-3 text-sm">
+      <span className="text-muted">
+        {game.status === 'missing'
+          ? 'This game is not on your PC right now. Your hours, cover and details are kept. If you moved it, point Orus to its new folder.'
+          : 'The drive with this game is not connected. Your hours, cover and details are kept.'}
+      </span>
+      {game.status === 'missing' && (
+        <button type="button" disabled={busy} onClick={() => void relocate()} className="shrink-0 rounded-md bg-raised px-4 py-2 font-semibold hover:bg-line disabled:opacity-50">
+          {busy ? 'Checking folder' : 'Locate game…'}
+        </button>
+      )}
     </div>
   )
 }
@@ -472,6 +521,7 @@ export function GameModal() {
                 {game.favorite ? '★ Favorite' : '☆ Add to favorites'}
               </button>
             </div>
+            <NotInstalledNotice game={game} />
             <div className="grid grid-cols-4 gap-6 border-t border-line pt-5">
               <Stat label="Played" value={game.playtimeSeconds > 0 ? formatPlaytime(game.playtimeSeconds) : '0 h'} />
               <Stat label="Last played" value={formatRelative(game.lastPlayedAt)} />

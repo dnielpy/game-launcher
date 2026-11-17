@@ -1,5 +1,7 @@
 import { useEffect } from 'react'
+import { Avatar } from './components/Avatar'
 import { GameModal } from './components/GameModal'
+import { ProfileModal } from './components/ProfileModal'
 import { ScanOverlay } from './components/ScanOverlay'
 import { ScanStatus } from './components/ScanStatus'
 import { Sidebar } from './components/Sidebar'
@@ -10,7 +12,7 @@ import { EmulatorsView, ToolsView } from './views/ProgramsView'
 import { SettingsView } from './views/SettingsView'
 
 export function App() {
-  const { view, error, dismissError, refresh, refreshRoots } = useLauncher()
+  const { view, error, dismissError, refresh, refreshRoots, profile, openProfile } = useLauncher()
 
   useEffect(() => {
     const disconnect = connectEvents()
@@ -27,6 +29,15 @@ export function App() {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-16 shrink-0 items-center justify-end border-b border-line px-8">
           <ScanStatus />
+          <button
+            type="button"
+            onClick={() => openProfile(true)}
+            className="ml-5 rounded-full ring-accent-bright transition-shadow hover:ring-2 focus-visible:ring-2"
+            aria-label={profile?.created ? `Profile of ${profile.name}` : 'Create your profile'}
+            title={profile?.created ? profile.name : 'Create your profile'}
+          >
+            <Avatar profile={profile} />
+          </button>
         </header>
         {error && (
           <div role="alert" className="flex items-center justify-between gap-4 bg-danger/15 px-8 py-3 text-sm">
@@ -45,6 +56,7 @@ export function App() {
         </main>
       </div>
       <GameModal />
+      <ProfileModal />
       <ScanOverlay />
     </div>
   )

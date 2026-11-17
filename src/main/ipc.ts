@@ -3,6 +3,7 @@ import path from 'node:path'
 import { z } from 'zod'
 import { IpcChannels } from '@shared/ipc'
 import type { GamePatch, ManualField } from '@shared/types'
+import type { BackupService } from './backup/backupService'
 import type { Repository } from './db/repository'
 import type { MetadataService } from './metadata/metadataService'
 import { fileSize, isDirectory } from './scanner/fsUtils'
@@ -10,7 +11,9 @@ import { cleanDisplayTitle } from './scanner/nameCleaner'
 import { matchTool } from './scanner/toolCatalog'
 import { extractIcon } from './services/icons'
 import { launchGame, openGameFolder } from './services/launcher'
+import { planRelocation } from './services/relocate'
 import type { PlaytimeTracker } from './services/playtime'
+import type { ProfileService } from './services/profile'
 import type { ScanService } from './services/scanService'
 import type { SettingsService } from './services/settings'
 import type { UpdateService } from './updates/updateService'
@@ -22,6 +25,8 @@ export interface IpcServices {
   playtime: PlaytimeTracker
   settings: SettingsService
   updates: UpdateService
+  profile: ProfileService
+  backup: BackupService
   notifyLibraryChanged: () => void
 }
 
@@ -46,7 +51,7 @@ const sourceSchema = z.enum(['steam', 'rawg'])
 const externalIdSchema = z.string().regex(/^\d{1,12}$/)
 
 export function registerIpcHandlers(services: IpcServices): void {
-  const { repository, scanService, metadata, playtime, settings, updates } = services
+  const { repository, scanService, metadata, playtime, settings, updates, profile, backup, notifyLibraryChanged } = services
 
   ipcMain.handle(IpcChannels.updatesGet, () => updates.getStatus())
   ipcMain.handle(IpcChannels.updatesCheck, () => updates.check())
@@ -124,7 +129,9 @@ export function registerIpcHandlers(services: IpcServices): void {
   ipcMain.handle(IpcChannels.libraryRemove, (_event, rawId: unknown) => {
     const game = repository.getGame(idSchema.parse(rawId))
     if (!game) return
-    if (game.sources.includes('manual') && game.sources.length === 1) repository.deleteGames([game.id])
+    // Entries with play history are only hidden, so hours and covers are never lost.
+    const hasHistory = game.playtimeSeconds > 0 || game.favorite
+    if (game.sources.includes('manual') && game.sources.length === 1 && !hasHistory) repository.deleteGames([game.id])
     else repository.updateGame(game.id, { hidden: true })
   })
 
@@ -145,6 +152,27 @@ export function registerIpcHandlers(services: IpcServices): void {
     const filePath = result.filePaths[0]
     if (result.canceled || !filePath) return null
     repository.setLaunchFile(game.id, filePath, await fileSize(filePath))
+    return repository.getGame(game.id)
+  })
+
+  ipcMain.handle(IpcChannels.libraryRelocate, async (event, rawId: unknown) => {
+    const game = repository.getGame(idSchema.parse(rawId))
+    if (!game) throw new Error('Game not found')
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const options = {
+      title: `Choose the new folder of ${game.title}`,
+      defaultPath: path.dirname(game.installPath),
+      properties: ['openDirectory' as const]
+    }
+    const result = window ? await dialog.showOpenDialog(window, options) : await dialog.showOpenDialog(options)
+    const folder = result.filePaths[0]
+    if (result.canceled || !folder) return null
+    repository.relocateGame(game.id, await planRelocation(game, folder))
+    const launch = repository.getGame(game.id)?.launch
+    if (launch?.type === 'exe') {
+      const iconFile = await extractIcon(game.id, launch.exePath)
+      if (iconFile) repository.setIcon(game.id, iconFile)
+    }
     return repository.getGame(game.id)
   })
 
@@ -225,6 +253,55 @@ export function registerIpcHandlers(services: IpcServices): void {
       void metadata.runPending()
     }
     return { hasRawgKey: settings.getRawgKey() !== null }
+  })
+
+  ipcMain.handle(IpcChannels.profileGet, () => profile.get())
+  ipcMain.handle(IpcChannels.profileSave, (_event, rawName: unknown) => {
+    const name = z.string().trim().min(1).max(40).parse(rawName)
+    return profile.setName(name)
+  })
+  ipcMain.handle(IpcChannels.profileChoosePhoto, async (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const options = {
+      title: 'Choose your profile photo',
+      properties: ['openFile' as const],
+      filters: [{ name: 'Pictures', extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif'] }]
+    }
+    const result = window ? await dialog.showOpenDialog(window, options) : await dialog.showOpenDialog(options)
+    const file = result.filePaths[0]
+    if (result.canceled || !file) return null
+    return profile.setPhotoFromFile(file)
+  })
+  ipcMain.handle(IpcChannels.profileRemovePhoto, () => profile.removePhoto())
+  ipcMain.handle(IpcChannels.profileDelete, () => profile.remove())
+
+  ipcMain.handle(IpcChannels.dataExport, async (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const options = {
+      title: 'Export your Orus data',
+      defaultPath: `Orus-data-${new Date().toISOString().slice(0, 10)}.orus`,
+      filters: [{ name: 'Orus data', extensions: ['orus'] }]
+    }
+    const result = window ? await dialog.showSaveDialog(window, options) : await dialog.showSaveDialog(options)
+    if (result.canceled || !result.filePath) return null
+    return backup.export(result.filePath)
+  })
+
+  ipcMain.handle(IpcChannels.dataImport, async (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const options = {
+      title: 'Import Orus data',
+      properties: ['openFile' as const],
+      filters: [{ name: 'Orus data', extensions: ['orus'] }]
+    }
+    const result = window ? await dialog.showOpenDialog(window, options) : await dialog.showOpenDialog(options)
+    const file = result.filePaths[0]
+    if (result.canceled || !file) return null
+    const summary = await backup.import(file)
+    notifyLibraryChanged()
+    // Imported games are checked against this PC: the ones whose folders are here become playable.
+    void scanService.start()
+    return summary
   })
 
   ipcMain.handle(IpcChannels.openExternal, async (_event, rawUrl: unknown) => {

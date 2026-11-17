@@ -8,7 +8,7 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: 'all', label: 'All games' },
   { id: 'favorites', label: 'Favorites' },
   { id: 'review', label: 'Need your check' },
-  { id: 'missing', label: 'Not found' },
+  { id: 'missing', label: 'Not installed' },
   { id: 'hidden', label: 'Hidden' }
 ]
 

@@ -11,7 +11,7 @@ export function GameTile({ game, showPlaytime = false }: { game: Game; showPlayt
   return (
     <button type="button" onClick={() => select(game.id)} className="group flex w-full flex-col text-left" title={game.title}>
       <div
-        className={`relative aspect-[2/3] w-full overflow-hidden rounded-md ring-accent-bright transition-[box-shadow,transform] duration-150 group-hover:scale-[1.03] group-hover:ring-2 group-focus-visible:ring-2 ${dimmed ? 'opacity-40 grayscale' : ''}`}
+        className={`relative aspect-[2/3] w-full overflow-hidden rounded-md ring-accent-bright transition-[box-shadow,transform] duration-150 group-hover:scale-[1.03] group-hover:ring-2 group-focus-visible:ring-2 ${dimmed ? 'opacity-60 grayscale' : ''}`}
       >
         <Cover game={game} />
         {running && <span className="absolute left-2 top-2 rounded-sm bg-accent-bright px-1.5 py-0.5 text-[11px] font-semibold text-black">Playing</span>}
@@ -26,7 +26,7 @@ export function GameTile({ game, showPlaytime = false }: { game: Game; showPlayt
       </div>
       <span className="mt-2 line-clamp-2 text-sm leading-snug text-ink">{game.title}</span>
       {dimmed ? (
-        <span className="text-xs text-muted">{game.status === 'missing' ? 'Not found on disk' : 'Drive disconnected'}</span>
+        <span className="text-xs text-muted">{game.status === 'missing' ? 'Not installed' : 'Drive disconnected'}{game.playtimeSeconds > 0 ? `, ${formatHoursShort(game.playtimeSeconds)} played` : ''}</span>
       ) : (
         showPlaytime && game.playtimeSeconds > 0 && <span className="text-xs text-muted">{formatHoursShort(game.playtimeSeconds)} played</span>
       )}

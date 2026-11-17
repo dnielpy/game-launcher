@@ -144,9 +144,12 @@ export class ScanService {
       return game !== undefined && !game.sources.includes('manual') && game.playtimeSeconds === 0 && game.manualFields.length === 0 && !game.favorite && existsSync(game.installPath)
     })
     // Programs added by hand are never found by the scan; they stay as long as their executable exists.
+    // Games the user pointed at a folder by hand may live outside every scanned location; they stay while that folder exists.
     const isManualAndPresent = (id: number) => {
       const game = gamesById.get(id)
-      return game !== undefined && game.sources.includes('manual') && game.launch?.type === 'exe' && existsSync(game.launch.exePath)
+      if (game === undefined) return false
+      if (game.manualFields.includes('location') && existsSync(game.installPath)) return true
+      return game.sources.includes('manual') && game.launch?.type === 'exe' && existsSync(game.launch.exePath)
     }
     const missing = plan.missing.filter((id) => !rejected.includes(id) && !isManualAndPresent(id))
     const unavailable = plan.unavailable.filter((id) => !isManualAndPresent(id))

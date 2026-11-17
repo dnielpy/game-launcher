@@ -22,7 +22,7 @@ function ProgramRow({ program, removable }: { program: Game; removable: boolean 
       <button type="button" onClick={() => select(program.id)} className="min-w-0 flex-1 text-left">
         <div className="truncate">{program.title}</div>
         <div className="truncate text-xs text-muted">
-          {program.status !== 'installed' ? 'Not found on disk' : program.launch?.type === 'exe' ? program.launch.exePath : program.installPath}
+          {program.status !== 'installed' ? 'Not installed' : program.launch?.type === 'exe' ? program.launch.exePath : program.installPath}
         </div>
       </button>
       {program.playtimeSeconds > 0 && <span className="shrink-0 text-xs text-muted">{formatHoursShort(program.playtimeSeconds)}</span>}

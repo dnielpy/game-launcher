@@ -1,6 +1,7 @@
 import { app, BrowserWindow, net, shell } from 'electron'
 import path from 'node:path'
 import { IpcChannels } from '@shared/ipc'
+import { BackupService } from './backup/backupService'
 import { openDatabase } from './db/database'
 import { Repository } from './db/repository'
 import { registerIpcHandlers } from './ipc'
@@ -9,6 +10,7 @@ import { handleMediaProtocol, registerMediaScheme } from './mediaProtocol'
 import { MetadataService } from './metadata/metadataService'
 import { gameMediaDirectory, iconsDirectory } from './services/icons'
 import { PlaytimeTracker } from './services/playtime'
+import { ProfileService } from './services/profile'
 import { ScanService } from './services/scanService'
 import { SettingsService } from './services/settings'
 import { UpdateService } from './updates/updateService'
@@ -102,10 +104,12 @@ if (!hasLock) {
       onSaved: () => void metadata.runPending()
     })
 
+    const profile = new ProfileService(repository, path.join(app.getPath('userData'), 'profile'))
+    const backup = new BackupService(repository, profile, { games: gameMediaDirectory(), icons: iconsDirectory() }, app.getVersion())
     const updates = new UpdateService((status) => send(IpcChannels.updatesStatus, status))
 
-    handleMediaProtocol({ icons: iconsDirectory(), games: gameMediaDirectory() })
-    registerIpcHandlers({ repository, scanService, metadata, playtime, settings, updates, notifyLibraryChanged })
+    handleMediaProtocol({ icons: iconsDirectory(), games: gameMediaDirectory(), profile: profile.directory })
+    registerIpcHandlers({ repository, scanService, metadata, playtime, settings, updates, profile, backup, notifyLibraryChanged })
     updates.startSchedule()
     mainWindow = createWindow()
 

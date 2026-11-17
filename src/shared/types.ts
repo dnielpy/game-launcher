@@ -93,7 +93,7 @@ export interface Game {
 }
 
 /** Fields the user changed by hand. A rescan never overwrites these. */
-export type ManualField = 'title' | 'exe' | 'args' | 'category' | 'match'
+export type ManualField = 'title' | 'exe' | 'args' | 'category' | 'match' | 'location'
 
 export interface PendingInstaller {
   id: number
@@ -165,4 +165,30 @@ export interface UpdateStatus {
   download: { receivedBytes: number; totalBytes: number; bytesPerSecond: number } | null
   error: string | null
   checkedAt: string | null
+}
+
+/** The local profile. It never leaves this PC; there is no account. */
+export interface ProfileState {
+  /** True once the user chose a name. */
+  created: boolean
+  name: string
+  /** Image file inside the profile folder, served as media://profile/<file>. */
+  avatarFile: string | null
+}
+
+export interface ExportSummary {
+  filePath: string
+  games: number
+  sessions: number
+  images: number
+  sizeBytes: number
+}
+
+export interface ImportSummary {
+  gamesAdded: number
+  gamesMerged: number
+  sessionsAdded: number
+  imagesRestored: number
+  profileRestored: boolean
+  exportedAt: string | null
 }

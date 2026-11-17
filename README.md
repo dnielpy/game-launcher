@@ -5,6 +5,7 @@ A local game library for Windows. It finds the games installed on your PC, shows
 ## Features (phase 1)
 
 - **Automatic discovery.** Checks common game folders on every drive (`Games`, `Juegos`, `GOG Games`, `XboxGames`...), `Program Files` with stricter rules, the Windows uninstall registry, desktop and Start menu shortcuts, and Steam and Epic libraries.
+- **Backup and profile.** Export everything (games, hours, covers, details, profile) to one .orus file and import it on another PC. A local profile with your name, photo and play stats needs no account.
 - **Your own folders.** Add any folder under *Locations*; turn any location on or off.
 - **Engine-aware detection.** Recognizes Unity, Unreal, GameMaker, Godot, RPG Maker and Ren'Py layouts, and tells a game folder apart from a folder that holds several games.
 - **Main executable picking.** Ignores uninstallers, redistributables, crash handlers and anti-cheat helpers. Shortcuts and registry icons anchor the choice; close calls are flagged so you can pick.

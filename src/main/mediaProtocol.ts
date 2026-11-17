@@ -12,12 +12,14 @@ export function registerMediaScheme(): void {
 export interface MediaDirectories {
   icons: string
   games: string
+  profile: string
 }
 
 /**
  * Serves cached images:
  *   media://icons/<file>          executable icons
  *   media://games/<id>/<file>     covers, banners, logos and screenshots
+ *   media://profile/<file>        the profile photo
  * Only files inside those folders can be read, so the renderer never gets arbitrary disk access.
  */
 export function handleMediaProtocol(directories: MediaDirectories): void {
@@ -28,6 +30,8 @@ export function handleMediaProtocol(directories: MediaDirectories): void {
 
     if (url.hostname === 'icons' && segments.length === 1) {
       filePath = path.join(directories.icons, path.basename(segments[0]!))
+    } else if (url.hostname === 'profile' && segments.length === 1) {
+      filePath = path.join(directories.profile, path.basename(segments[0]!))
     } else if (url.hostname === 'games' && segments.length === 2 && /^\d+$/.test(segments[0]!)) {
       filePath = path.join(directories.games, segments[0]!, path.basename(segments[1]!))
     }

@@ -1,11 +1,14 @@
 import type {
   Game,
+  ExportSummary,
   GamePatch,
+  ImportSummary,
   LibraryRoot,
   MetadataCandidate,
   MetadataProgress,
   MetadataSource,
   PendingInstaller,
+  ProfileState,
   ScanProgress,
   ScanSummary,
   SettingsState,
@@ -20,6 +23,14 @@ export const IpcChannels = {
   libraryChanged: 'library:changed',
   libraryRemove: 'library:remove',
   libraryChooseLaunchFile: 'library:choose-launch-file',
+  libraryRelocate: 'library:relocate',
+  profileGet: 'profile:get',
+  profileSave: 'profile:save',
+  profileChoosePhoto: 'profile:choose-photo',
+  profileRemovePhoto: 'profile:remove-photo',
+  profileDelete: 'profile:delete',
+  dataExport: 'data:export',
+  dataImport: 'data:import',
   emulatorsAdd: 'emulators:add',
   installersList: 'installers:list',
   rootsList: 'roots:list',
@@ -60,6 +71,8 @@ export interface LauncherApi {
     remove(id: number): Promise<void>
     /** Opens a file picker in the game folder to choose what starts the game (.exe, .bat, .cmd, a shortcut...). Null when cancelled. */
     chooseLaunchFile(id: number): Promise<Game | null>
+    /** Opens a folder picker to point the game at a new location (moved or reinstalled). Null when cancelled. */
+    relocate(id: number): Promise<Game | null>
     /** Fires when games change outside the renderer: new covers, finished play sessions. */
     onChanged(listener: (payload: { runningGameIds: number[] }) => void): Unsubscribe
   }
@@ -106,6 +119,22 @@ export interface LauncherApi {
     /** Closes Orus and runs the downloaded installer. */
     install(): Promise<void>
     onStatus(listener: (status: UpdateStatus) => void): Unsubscribe
+  }
+  profile: {
+    get(): Promise<ProfileState>
+    /** Sets the name. The first call creates the profile. */
+    save(name: string): Promise<ProfileState>
+    /** Opens an image picker; the photo is cropped to a square. Null when cancelled. */
+    choosePhoto(): Promise<ProfileState | null>
+    removePhoto(): Promise<ProfileState>
+    /** Deletes the profile. Play history stays. */
+    remove(): Promise<ProfileState>
+  }
+  data: {
+    /** Asks where to save, then writes games, play time, images and profile to one file. Null when cancelled. */
+    export(): Promise<ExportSummary | null>
+    /** Asks for a file and merges it into this library. Null when cancelled. */
+    import(): Promise<ImportSummary | null>
   }
   openExternal(url: string): Promise<void>
 }

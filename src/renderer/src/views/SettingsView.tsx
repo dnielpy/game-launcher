@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { AboutSection } from '../components/AboutSection'
 import { CoversSection } from '../components/CoversSection'
+import { DataSection } from '../components/DataSection'
 import { LocationsSection } from '../components/LocationsSection'
 import { UpdatesSection } from '../components/UpdatesSection'
 import { useLauncher, type SettingsModule } from '../store'
@@ -34,6 +35,13 @@ const MODULES: ModuleEntry[] = [
     description: 'Where box art, banners and ratings come from',
     icon: 'M4 5h16v14H4zM4 15l4-4 4 4 3-3 5 5',
     render: () => <CoversSection />
+  },
+  {
+    id: 'data',
+    title: 'Backup and restore',
+    description: 'Export or import your games, hours, covers and profile',
+    icon: 'M12 3v12M7 10l5 5 5-5M4 19h16',
+    render: () => <DataSection />
   },
   {
     id: 'about',

@@ -112,6 +112,16 @@ function now(): string {
   return new Date().toISOString()
 }
 
+/** A game as stored in a backup: everything except the statistics, which come from the sessions. */
+export type BackupGame = Omit<Game, 'playtimeSeconds' | 'lastPlayedAt' | 'sessionCount'>
+
+export interface BackupSession {
+  gameId: number
+  startedAt: string
+  endedAt: string
+  seconds: number
+}
+
 export interface GameUpdate {
   title?: string
   launch?: LaunchTarget
@@ -275,6 +285,31 @@ export class Repository {
     })
   }
 
+  /** Points a game at a new folder. Its history, covers and settings stay untouched. */
+  relocateGame(id: number, plan: { installPath: string; folderName: string; launch: LaunchTarget | null; exeCandidates: ExecutableCandidate[]; needsReview: boolean }): void {
+    const game = this.getGame(id)
+    if (!game) throw new Error('Game not found')
+    const clash = this.listGames().find((other) => other.id !== id && other.installPath.toLowerCase() === plan.installPath.toLowerCase())
+    if (clash) throw new Error(`"${clash.title}" already lives in that folder`)
+    const timestamp = now()
+    this.db
+      .prepare(
+        `UPDATE games SET install_path = @installPath, folder_name = @folderName, launch = @launch, exe_candidates = @exeCandidates,
+          needs_review = @needsReview, manual_fields = @manualFields, status = 'installed', updated_at = @timestamp, last_seen_at = @timestamp
+         WHERE id = @id`
+      )
+      .run({
+        id,
+        installPath: plan.installPath,
+        folderName: plan.folderName,
+        launch: JSON.stringify(plan.launch),
+        exeCandidates: JSON.stringify(plan.exeCandidates),
+        needsReview: plan.needsReview ? 1 : 0,
+        manualFields: JSON.stringify([...new Set([...game.manualFields, 'location' as const])]),
+        timestamp
+      })
+  }
+
   deleteGames(ids: number[]): void {
     const statement = this.db.prepare('DELETE FROM games WHERE id = ?')
     for (const id of ids) statement.run(id)
@@ -371,6 +406,91 @@ export class Repository {
   /** Called on every poll while the game runs, so a crash loses at most one poll interval. */
   extendSession(sessionId: number, endedAt: string, seconds: number): void {
     this.db.prepare('UPDATE play_sessions SET ended_at = ?, seconds = ? WHERE id = ?').run(endedAt, Math.max(0, Math.round(seconds)), sessionId)
+  }
+
+  /** Every recorded session, for backups. */
+  listSessions(): BackupSession[] {
+    const rows = this.db.prepare('SELECT game_id, started_at, ended_at, seconds FROM play_sessions ORDER BY game_id, started_at').all() as {
+      game_id: number
+      started_at: string
+      ended_at: string
+      seconds: number
+    }[]
+    return rows.map((row) => ({ gameId: row.game_id, startedAt: row.started_at, endedAt: row.ended_at, seconds: row.seconds }))
+  }
+
+  /** Adds sessions a game does not have yet (same start time counts as the same session). Returns how many were new. */
+  addSessions(gameId: number, sessions: Omit<BackupSession, 'gameId'>[]): number {
+    const known = new Set((this.db.prepare('SELECT started_at FROM play_sessions WHERE game_id = ?').all(gameId) as { started_at: string }[]).map((row) => row.started_at))
+    const insert = this.db.prepare('INSERT INTO play_sessions (game_id, started_at, ended_at, seconds) VALUES (?, ?, ?, ?)')
+    let added = 0
+    for (const session of sessions) {
+      if (known.has(session.startedAt)) continue
+      known.add(session.startedAt)
+      insert.run(gameId, session.startedAt, session.endedAt, Math.max(0, Math.round(session.seconds)))
+      added++
+    }
+    return added
+  }
+
+  findGameByPath(installPath: string): Game | null {
+    const row = this.db.prepare(`${GAME_SELECT} WHERE g.install_path = ?`).get(installPath) as GameRow | undefined
+    return row ? toGame(row) : null
+  }
+
+  /** Inserts a game from a backup exactly as it was saved. Returns the new id. */
+  insertBackupGame(game: BackupGame): number {
+    const result = this.db
+      .prepare(
+        `INSERT INTO games (install_path, folder_name, title, search_title, launch, sources, category, engine, confidence,
+          needs_review, exe_candidates, size_bytes, status, hidden, favorite, manual_fields, metadata, metadata_status,
+          added_at, updated_at, last_seen_at)
+         VALUES (@installPath, @folderName, @title, @searchTitle, @launch, @sources, @category, @engine, @confidence,
+          @needsReview, @exeCandidates, @sizeBytes, @status, @hidden, @favorite, @manualFields, @metadata, @metadataStatus,
+          @addedAt, @updatedAt, @lastSeenAt)`
+      )
+      .run({
+        installPath: game.installPath,
+        folderName: game.folderName,
+        title: game.title,
+        searchTitle: game.searchTitle,
+        launch: JSON.stringify(game.launch),
+        sources: JSON.stringify(game.sources),
+        category: game.category,
+        engine: game.engine,
+        confidence: game.confidence,
+        needsReview: game.needsReview ? 1 : 0,
+        exeCandidates: JSON.stringify(game.exeCandidates),
+        sizeBytes: game.sizeBytes,
+        status: game.status,
+        hidden: game.hidden ? 1 : 0,
+        favorite: game.favorite ? 1 : 0,
+        manualFields: JSON.stringify(game.manualFields),
+        metadata: game.metadata ? JSON.stringify(game.metadata) : null,
+        metadataStatus: game.metadataStatus,
+        addedAt: game.addedAt,
+        updatedAt: game.updatedAt,
+        lastSeenAt: game.lastSeenAt
+      })
+    return Number(result.lastInsertRowid)
+  }
+
+  /** Brings what a backup knows into a game that already exists here. Nothing the game already has is overwritten. */
+  mergeBackupGame(existing: Game, backup: BackupGame): { metadataTaken: boolean } {
+    const metadataTaken = existing.metadata === null && backup.metadata !== null
+    this.db
+      .prepare(
+        `UPDATE games SET favorite = @favorite, metadata = COALESCE(metadata, @metadata),
+          metadata_status = CASE WHEN @metadataTaken = 1 THEN @metadataStatus ELSE metadata_status END WHERE id = @id`
+      )
+      .run({
+        id: existing.id,
+        favorite: existing.favorite || backup.favorite ? 1 : 0,
+        metadata: backup.metadata ? JSON.stringify(backup.metadata) : null,
+        metadataTaken: metadataTaken ? 1 : 0,
+        metadataStatus: backup.metadataStatus
+      })
+    return { metadataTaken }
   }
 
   // ------------------------------------------------------------------ installers

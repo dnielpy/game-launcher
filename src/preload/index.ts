@@ -15,6 +15,7 @@ const api: LauncherApi = {
     openFolder: (id) => ipcRenderer.invoke(IpcChannels.libraryOpenFolder, id),
     remove: (id) => ipcRenderer.invoke(IpcChannels.libraryRemove, id),
     chooseLaunchFile: (id) => ipcRenderer.invoke(IpcChannels.libraryChooseLaunchFile, id),
+    relocate: (id) => ipcRenderer.invoke(IpcChannels.libraryRelocate, id),
     onChanged: (listener) => subscribe(IpcChannels.libraryChanged, listener)
   },
   emulators: {
@@ -55,6 +56,17 @@ const api: LauncherApi = {
     cancel: () => ipcRenderer.invoke(IpcChannels.updatesCancel),
     install: () => ipcRenderer.invoke(IpcChannels.updatesInstall),
     onStatus: (listener) => subscribe(IpcChannels.updatesStatus, listener)
+  },
+  profile: {
+    get: () => ipcRenderer.invoke(IpcChannels.profileGet),
+    save: (name) => ipcRenderer.invoke(IpcChannels.profileSave, name),
+    choosePhoto: () => ipcRenderer.invoke(IpcChannels.profileChoosePhoto),
+    removePhoto: () => ipcRenderer.invoke(IpcChannels.profileRemovePhoto),
+    remove: () => ipcRenderer.invoke(IpcChannels.profileDelete)
+  },
+  data: {
+    export: () => ipcRenderer.invoke(IpcChannels.dataExport),
+    import: () => ipcRenderer.invoke(IpcChannels.dataImport)
   },
   openExternal: (url) => ipcRenderer.invoke(IpcChannels.openExternal, url)
 }
