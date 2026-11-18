@@ -9,7 +9,8 @@ A local game library for Windows. It finds the games installed on your PC, shows
 - **Welcome screens.** The first start asks for your name and an optional photo, then whether to scan the whole PC or only the folders you choose, and shows the first scan and cover download. Without internet it tells you to scan again later for covers.
 - **Full screen.** Orus opens full screen; F11 or the buttons in the top bar leave it.
 - **Start over.** Deleting the profile saves a full, verified backup to Documents\\Orus backups first, then clears everything and shows the welcome screens, where the backup can be restored.
-- **Skins.** Orus (the original), Cinema (full-screen art and a shelf of covers, keyboard friendly) and Mosaic (light, tiled Home).
+- **Skins.** Cinema (the default: full-screen art and a shelf of covers, keyboard friendly), Orus (the original) and Mosaic (light, tiled Home).
+- **Minecraft.** Found in %APPDATA%\\.minecraft and started through SKlauncher (or the official launcher). Play time counts while the game runs, not while the launcher is open.
 - **Nintendo Switch games.** Turn it on under Emulated games: .nsp and .xci files show up in the library and start in your emulator (yuzu forks, Ryujinx). Covers and details come from RAWG and SteamGridDB once you add your free keys under *Settings, Covers and game details*.
 - **Your own folders.** Add any folder under *Locations*; turn any location on or off, or exclude a folder. Removing a game from the library excludes its folder so it never comes back.
 - **Engine-aware detection.** Recognizes Unity, Unreal, GameMaker, Godot, RPG Maker and Ren'Py layouts, and tells a game folder apart from a folder that holds several games.
