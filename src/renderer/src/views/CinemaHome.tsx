@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Game } from '@shared/types'
 import { Cover } from '../components/GameArt'
-import { formatPlaytime, formatRelative, heroUrl, logoUrl, releaseYear, titleHue } from '../format'
+import { formatPlaytime, formatRelative, heroUrl, logoUrl, releaseYear } from '../format'
 import { useLauncher } from '../store'
 import { EmptyHome } from './HomeView'
 import { playGame, useHomeData, useOverlayOpen } from './homeData'
@@ -25,21 +25,21 @@ function Backdrop({ game }: { game: Game }) {
     <div className="absolute inset-0 overflow-hidden bg-canvas">
       {layers.map((layer, index) => {
         const url = heroUrl(layer)
-        const hue = titleHue(layer.title)
         const top = index === layers.length - 1
         return (
           <div key={layer.id} className={`absolute inset-0 ${top ? 'animate-[backdrop-in_700ms_ease-out_both]' : ''}`}>
             {url ? (
               <img src={url} alt="" draggable={false} className="absolute inset-0 h-full w-full object-cover motion-safe:animate-[ken-burns_14s_ease-out_both]" />
             ) : (
-              <div className="absolute inset-0" style={{ background: `radial-gradient(90% 90% at 70% 30%, hsl(${hue} 45% 26%), hsl(${(hue + 40) % 360} 40% 8%) 70%)` }} />
+              <div className="absolute inset-0" style={{ background: 'radial-gradient(90% 90% at 70% 30%, #262626, #111111 70%)' }} />
             )}
           </div>
         )
       })}
       {/* Darken where text and the shelf sit, keep the art bright in the upper right. */}
-      <div className="absolute inset-0 bg-gradient-to-r from-[#07080c]/95 via-[#07080c]/55 to-transparent" />
-      <div className="absolute inset-0 bg-gradient-to-t from-[#07080c] via-[#07080c]/30 to-transparent" />
+      <div className="absolute inset-0 bg-black/25" />
+      <div className="absolute inset-0 bg-gradient-to-r from-[#0b0b0b]/95 via-[#0b0b0b]/60 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#0b0b0b] via-[#0b0b0b]/40 to-transparent" />
     </div>
   )
 }

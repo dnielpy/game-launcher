@@ -76,7 +76,7 @@ export const useLauncher = create<LauncherState>((set, get) => ({
   update: null,
   profile: null,
   profileOpen: false,
-  skin: 'orus',
+  skin: 'cinema',
   settings: null,
   app: null,
   resetting: null,

@@ -30,7 +30,8 @@ export class SettingsService {
 
   getSkin(): SkinId {
     const value = this.repository.getSetting(SKIN_SETTING)
-    return SKINS.includes(value as SkinId) ? (value as SkinId) : 'orus'
+    // Cinema is the default look; a skin someone picked stays.
+    return SKINS.includes(value as SkinId) ? (value as SkinId) : 'cinema'
   }
 
   setSkin(skin: SkinId): void {

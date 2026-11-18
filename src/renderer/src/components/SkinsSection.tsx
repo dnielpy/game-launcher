@@ -9,8 +9,8 @@ interface SkinInfo {
 }
 
 const SKINS: SkinInfo[] = [
+  { id: 'cinema', name: 'Cinema', description: 'The default. Full-screen art for one game at a time and a shelf of covers. Made for the couch: arrows and Enter.' },
   { id: 'orus', name: 'Orus', description: 'The original. Sidebar on the left, a big banner and rows of covers.' },
-  { id: 'cinema', name: 'Cinema', description: 'Full-screen art for one game at a time and a shelf of covers. Made for the couch: arrows and Enter.' },
   { id: 'mosaic', name: 'Mosaic', description: 'Light and airy. An icon rail and a Home made of tiles, with your playtime at a glance.' }
 ]
 
@@ -19,9 +19,9 @@ function Preview({ id }: { id: SkinId }) {
   if (id === 'cinema') {
     return (
       <div className="relative h-full w-full overflow-hidden bg-[#0b0d12]">
-        <div className="absolute inset-0 bg-[radial-gradient(80%_90%_at_75%_25%,#7a4a14,#0b0d12_70%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(80%_90%_at_75%_25%,#2e2e2e,#111111_70%)]" />
         <div className="absolute left-3 right-3 top-2.5 flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-[#f5a524]" />
+          <span className="h-2.5 w-2.5 rounded-full bg-[#3fbf3f]" />
           <span className="h-1 w-6 rounded bg-white/80" />
           <span className="h-1 w-6 rounded bg-white/30" />
           <span className="h-1 w-6 rounded bg-white/30" />
@@ -30,10 +30,10 @@ function Preview({ id }: { id: SkinId }) {
         <div className="absolute left-4 top-[24%] flex flex-col gap-1.5">
           <span className="h-3 w-24 rounded-sm bg-white/90" />
           <span className="h-1 w-16 rounded bg-white/40" />
-          <span className="mt-1 h-3.5 w-12 rounded-full bg-[#f5a524]" />
+          <span className="mt-1 h-3.5 w-12 rounded-full bg-[#3fbf3f]" />
         </div>
         <div className="absolute bottom-3 left-4 flex items-end gap-1.5">
-          <span className="h-12 w-8 rounded-[3px] bg-[#c9783a] ring-2 ring-[#f5a524]" />
+          <span className="h-12 w-8 rounded-[3px] bg-[#4a4a4a] ring-2 ring-[#3fbf3f]" />
           {[0, 1, 2, 3, 4].map((index) => (
             <span key={index} className="h-9 w-6 rounded-[3px] bg-white/25" />
           ))}
