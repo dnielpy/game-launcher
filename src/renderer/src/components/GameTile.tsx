@@ -1,7 +1,7 @@
 import type { Game } from '@shared/types'
 import { formatHoursShort } from '../format'
 import { useLauncher } from '../store'
-import { ConsoleIcon } from './ConsoleIcon'
+import switchBadge from '../assets/switch-badge.png'
 import { Cover } from './GameArt'
 
 export function GameTile({ game, showPlaytime = false }: { game: Game; showPlaytime?: boolean }) {
@@ -21,9 +21,7 @@ export function GameTile({ game, showPlaytime = false }: { game: Game; showPlayt
           <span className="absolute left-2 top-2 rounded-sm bg-warn px-1.5 py-0.5 text-[11px] font-semibold text-black">Check exe</span>
         )}
         {!running && !game.needsReview && game.platform === 'switch' && (
-          <span className="absolute left-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/65 text-white backdrop-blur" title="Nintendo Switch">
-            <ConsoleIcon className="h-4 w-4" label="Nintendo Switch" />
-          </span>
+          <img src={switchBadge} alt="Nintendo Switch" title="Nintendo Switch" draggable={false} className="absolute left-2 top-2 h-7 w-7 rounded-md shadow-[0_2px_8px_rgba(0,0,0,0.45)]" />
         )}
         {game.favorite && (
           <span className="absolute right-2 top-2 text-sm text-white drop-shadow" aria-label="Favorite">
