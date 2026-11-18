@@ -116,6 +116,8 @@ export class MetadataService {
   async findMatch(game: MatchTarget): Promise<Match | null> {
     // Console games are not on Steam: RAWG knows their details, SteamGridDB their artwork.
     if (game.platform === 'switch') return (await this.findOnRawg(game, 'switch')) ?? (await this.findOnSteamGridDb(game))
+    // Minecraft is not sold on Steam, where the name only matches its spin-offs.
+    if (/^minecraft$/i.test(game.searchTitle.trim())) return (await this.findOnRawg(game)) ?? (await this.findOnSteamGridDb(game))
     const steam = await this.findOnSteam(game)
     if (steam) return steam
     return (await this.findOnRawg(game)) ?? (await this.findOnSteamGridDb(game))

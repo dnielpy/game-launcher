@@ -9,6 +9,7 @@ let dir: { path: string; cleanup: () => void }
 let output: ScanOutput
 
 const noSources: ScanDependencies = {
+  findMinecraft: async () => null,
   readRegistry: async () => [],
   readSteam: async () => [],
   readEpic: async () => []
@@ -68,6 +69,7 @@ beforeAll(async () => {
   }
 
   output = await runScan(input, undefined, undefined, {
+    findMinecraft: async () => null,
     readRegistry: async () => [
       { displayName: 'Registry Game Deluxe', installLocation: p('Elsewhere', 'Registry Game'), displayIcon: null, publisher: null }
     ],

@@ -8,6 +8,7 @@ import { isExcludedFolderName } from './exclusions'
 import { directorySize, isDirectory, isSameOrInside, pathKey, readDirSafe, realPathSafe, withTimeout } from './fsUtils'
 import { cleanDisplayTitle, cleanSearchTitle, normalizeForComparison } from './nameCleaner'
 import { findRoms } from './romScanner'
+import { findMinecraft, isMinecraftLauncherPath } from './sources/minecraft'
 import { matchTool } from './toolCatalog'
 import { readEpicLibrary } from './sources/epic'
 import { readUninstallEntries } from './sources/registry'
@@ -36,12 +37,14 @@ export interface ScanDependencies {
   readRegistry: () => Promise<RegistryEntry[]>
   readSteam: () => Promise<LauncherEntry[]>
   readEpic: () => Promise<LauncherEntry[]>
+  findMinecraft: (shortcuts: ResolvedShortcut[]) => Promise<ScanCandidate | null>
 }
 
 export const defaultDependencies: ScanDependencies = {
   readRegistry: readUninstallEntries,
   readSteam: () => readSteamLibrary(),
-  readEpic: () => readEpicLibrary()
+  readEpic: () => readEpicLibrary(),
+  findMinecraft: (shortcuts) => findMinecraft(shortcuts)
 }
 
 export class ScanCancelledError extends Error {
@@ -113,7 +116,13 @@ export class ScanEngine {
 
     const excluded = this.input.excludePaths ?? []
     const roms = await this.findConsoleGames(reachableRoots, excluded)
-    const games = [...mergeDuplicates(this.collapseNested([...this.games.values()])).map(applyToolCatalog), ...roms].filter(
+    // Minecraft is one entry that opens its launcher; SKlauncher files found elsewhere fold into it.
+    const minecraft = await this.safe('minecraft', () => this.deps.findMinecraft(this.input.shortcuts), null)
+    const found = mergeDuplicates(this.collapseNested([...this.games.values()])).map(applyToolCatalog)
+    const pcGames = minecraft
+      ? found.filter((game) => !isMinecraftLauncherPath(game.installPath) && !(game.launch?.type === 'exe' && isMinecraftLauncherPath(game.launch.exePath)))
+      : found
+    const games = [...pcGames, ...(minecraft ? [minecraft] : []), ...roms].filter(
       (game) => !excluded.some((path) => isSameOrInside(game.installPath, path))
     )
     this.report('done', `Found ${games.length} games`, true)

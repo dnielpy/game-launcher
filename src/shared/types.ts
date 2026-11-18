@@ -1,5 +1,6 @@
 /** Where a detected game came from. A game can have several sources. */
-export type DetectionSource = 'folder' | 'registry' | 'shortcut' | 'steam' | 'epic' | 'manual'
+/** minecraft: the Minecraft entry, started through SKlauncher or the official launcher. */
+export type DetectionSource = 'folder' | 'registry' | 'shortcut' | 'steam' | 'epic' | 'manual' | 'minecraft'
 
 /** Game engine inferred from files on disk. */
 export type GameEngine = 'unity' | 'unreal' | 'gamemaker' | 'godot' | 'rpgmaker' | 'unknown'

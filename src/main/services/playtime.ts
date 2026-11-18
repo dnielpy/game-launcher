@@ -13,6 +13,10 @@ const STARTUP_GRACE_MS = 3 * 60_000
  * During this window the tracked executable can switch; afterwards it is fixed.
  */
 const HANDOFF_WINDOW_MS = 3 * 60_000
+/** Minecraft gets longer: the launcher stays open while the user logs in, picks a version and downloads it. */
+const MINECRAFT_STARTUP_GRACE_MS = 30 * 60_000
+/** Process name used for Minecraft game processes found by their command line. */
+const MINECRAFT_PROCESS = 'minecraft'
 /** Consecutive polls without the game before the session is over. */
 const MISSES_TO_STOP = 2
 
@@ -33,6 +37,8 @@ interface TrackedGame {
   /** Executables that make up the running game. The session lasts while one of them runs. */
   mainNames: Set<string>
   launchedAt: number
+  /** Minecraft runs on Java like its launcher, so it is recognised by its command line instead of its name. */
+  minecraft: boolean
   sessionId: number | null
   sessionStartedAt: number | null
   misses: number
@@ -60,6 +66,33 @@ export function processNamesFor(game: Pick<Game, 'launch' | 'exeCandidates'>): S
   return names
 }
 
+/**
+ * Java processes that are the Minecraft game (not a launcher), from "pid|command line" lines.
+ * The game always gets --gameDir/--assetsDir or a Minecraft main class; SKlauncher runs as "-jar SKlauncher.jar".
+ */
+export function parseMinecraftProcesses(output: string): number[] {
+  const pids: number[] = []
+  for (const line of output.split(/\r?\n/)) {
+    const separator = line.indexOf('|')
+    if (separator <= 0) continue
+    const pid = Number(line.slice(0, separator).trim())
+    const commandLine = line.slice(separator + 1)
+    if (!Number.isInteger(pid) || /sklauncher\.jar|minecraftlauncher/i.test(commandLine)) continue
+    if (/--gameDir|--assetsDir|net\.minecraft|net\.fabricmc|cpw\.mods|net\.minecraftforge|org\.quiltmc/i.test(commandLine)) pids.push(pid)
+  }
+  return pids
+}
+
+export async function listMinecraftProcesses(): Promise<number[]> {
+  if (process.platform !== 'win32') return []
+  const script = "Get-CimInstance Win32_Process | Where-Object { $_.Name -match '^javaw?\\.exe$' } | ForEach-Object { '{0}|{1}' -f $_.ProcessId, $_.CommandLine }"
+  return parseMinecraftProcesses(await runCommand('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], 20_000))
+}
+
+export function isMinecraft(game: Pick<Game, 'sources'>): boolean {
+  return game.sources?.includes('minecraft') === true
+}
+
 export async function listRunningProcesses(): Promise<RunningProcess[]> {
   if (process.platform !== 'win32') return []
   return parseTasklist(await runCommand('tasklist.exe', ['/fo', 'csv', '/nh'], 15_000))
@@ -85,8 +118,13 @@ export class PlaytimeTracker {
   constructor(
     private readonly repository: Repository,
     private readonly onChange: (runningGameIds: number[]) => void,
-    private readonly listProcesses: () => Promise<RunningProcess[]> = listRunningProcesses
+    private readonly listProcesses: () => Promise<RunningProcess[]> = listRunningProcesses,
+    private readonly listMinecraft: () => Promise<number[]> = listMinecraftProcesses
   ) {}
+
+  private async minecraftProcesses(): Promise<RunningProcess[]> {
+    return (await this.listMinecraft()).map((pid) => ({ name: MINECRAFT_PROCESS, pid }))
+  }
 
   runningGameIds(): number[] {
     return [...this.tracked.values()].filter((entry) => entry.sessionId !== null).map((entry) => entry.gameId)
@@ -94,12 +132,13 @@ export class PlaytimeTracker {
 
   /** Starts watching a game that was just launched. */
   async track(game: Game, now = Date.now()): Promise<void> {
-    const candidateNames = processNamesFor(game)
+    const minecraft = isMinecraft(game)
+    const candidateNames = minecraft ? new Set([MINECRAFT_PROCESS]) : processNamesFor(game)
     if (candidateNames.size === 0 || this.tracked.has(game.id)) return
 
     let baseline: RunningProcess[] = []
     try {
-      baseline = await this.listProcesses()
+      baseline = minecraft ? await this.minecraftProcesses() : await this.listProcesses()
     } catch {
       baseline = []
     }
@@ -108,7 +147,8 @@ export class PlaytimeTracker {
       gameId: game.id,
       title: game.title,
       candidateNames,
-      launchName: game.launch?.type === 'exe' ? exeName(game.launch.exePath) : null,
+      launchName: !minecraft && game.launch?.type === 'exe' ? exeName(game.launch.exePath) : null,
+      minecraft,
       baselinePids: new Set(baseline.filter((process) => candidateNames.has(process.name)).map((process) => process.pid)),
       mainNames: new Set(),
       launchedAt: now,
@@ -149,7 +189,9 @@ export class PlaytimeTracker {
   private async pollOnce(now: number): Promise<void> {
     let running: RunningProcess[]
     try {
-      running = await this.listProcesses()
+      const entries = [...this.tracked.values()]
+      running = entries.some((entry) => !entry.minecraft) ? await this.listProcesses() : []
+      if (entries.some((entry) => entry.minecraft)) running = [...running, ...(await this.minecraftProcesses())]
     } catch (error) {
       log.warn('Could not read the process list', error)
       return
@@ -163,8 +205,9 @@ export class PlaytimeTracker {
       if (entry.sessionId === null) {
         if (candidates.length === 0) {
           // Not started yet. Give up after the grace period without recording anything.
-          if (now - entry.launchedAt > STARTUP_GRACE_MS) {
-            log.info(`"${entry.title}" did not start within ${STARTUP_GRACE_MS / 60_000} minutes; not tracking it`)
+          const grace = entry.minecraft ? MINECRAFT_STARTUP_GRACE_MS : STARTUP_GRACE_MS
+          if (now - entry.launchedAt > grace) {
+            log.info(`"${entry.title}" did not start within ${grace / 60_000} minutes; not tracking it`)
             this.tracked.delete(entry.gameId)
           }
           continue

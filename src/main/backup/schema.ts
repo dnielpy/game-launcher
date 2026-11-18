@@ -41,7 +41,7 @@ export const backupGameSchema = z.object({
   title: z.string().min(1),
   searchTitle: z.string(),
   launch: launchSchema,
-  sources: z.array(z.enum(['folder', 'registry', 'shortcut', 'steam', 'epic', 'manual'])).default([]),
+  sources: z.array(z.enum(['folder', 'registry', 'shortcut', 'steam', 'epic', 'manual', 'minecraft'])).default([]),
   category: z.enum(['game', 'tool', 'emulator']),
   platform: z.enum(['pc', 'switch']).default('pc'),
   engine: z.enum(['unity', 'unreal', 'gamemaker', 'godot', 'rpgmaker', 'unknown']).default('unknown'),
