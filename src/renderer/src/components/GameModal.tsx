@@ -49,7 +49,9 @@ const SOURCE_LABELS: Record<string, string> = {
   registry: 'installed programs',
   shortcut: 'a desktop or Start menu shortcut',
   steam: 'Steam',
-  epic: 'Epic Games'
+  epic: 'Epic Games',
+  minecraft: 'your Minecraft folder and launcher',
+  manual: 'you'
 }
 
 function Stat({ label, value, detail }: { label: string; value: string; detail?: string | null }) {
@@ -459,16 +461,6 @@ function ManageTab({ game }: { game: Game }) {
         <div className="flex gap-4">
           <button type="button" onClick={() => void window.api.library.openFolder(game.id)} className="hover:text-ink">
             Open folder
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              void update({ hidden: !game.hidden })
-              if (!game.hidden) select(null)
-            }}
-            className="hover:text-ink"
-          >
-            {game.hidden ? 'Show in library' : 'Hide from library'}
           </button>
           <button type="button" onClick={() => void removeFromLibrary(game)} className="hover:text-danger">
             Remove from library

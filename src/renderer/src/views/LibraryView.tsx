@@ -2,14 +2,13 @@ import { useMemo, useState } from 'react'
 import { GameTile } from '../components/GameTile'
 import { useLauncher } from '../store'
 
-type Filter = 'all' | 'favorites' | 'review' | 'missing' | 'hidden'
+type Filter = 'all' | 'favorites' | 'switch' | 'missing'
 
 const FILTERS: { id: Filter; label: string }[] = [
   { id: 'all', label: 'All games' },
   { id: 'favorites', label: 'Favorites' },
-  { id: 'review', label: 'Need your check' },
-  { id: 'missing', label: 'Not installed' },
-  { id: 'hidden', label: 'Hidden' }
+  { id: 'switch', label: 'Switch' },
+  { id: 'missing', label: 'Not installed' }
 ]
 
 type Sort = 'name' | 'played' | 'playtime' | 'added' | 'size'
@@ -19,16 +18,17 @@ export function LibraryView() {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
   const [sort, setSort] = useState<Sort>('name')
+  // The Switch filter only shows once there are Switch games.
+  const hasSwitch = games.some((game) => game.platform === 'switch')
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase()
     return games
       .filter((game) => game.category === 'game')
       .filter((game) => {
-        if (filter === 'hidden') return game.hidden
         if (game.hidden) return false
         if (filter === 'favorites') return game.favorite
-        if (filter === 'review') return game.needsReview
+        if (filter === 'switch') return game.platform === 'switch'
         if (filter === 'missing') return game.status !== 'installed'
         return true
       })
@@ -70,7 +70,7 @@ export function LibraryView() {
       </div>
 
       <div className="flex gap-2">
-        {FILTERS.map((item) => (
+        {FILTERS.filter((item) => item.id !== 'switch' || hasSwitch).map((item) => (
           <button
             key={item.id}
             type="button"

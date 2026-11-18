@@ -127,5 +127,10 @@ export const MIGRATIONS: { version: number; sql: string }[] = [
         added_at TEXT NOT NULL
       );
     `
+  },
+  {
+    // The library no longer hides games (Remove from library replaced it): bring hidden games back.
+    version: 5,
+    sql: `UPDATE games SET hidden = 0 WHERE category = 'game';`
   }
 ]
