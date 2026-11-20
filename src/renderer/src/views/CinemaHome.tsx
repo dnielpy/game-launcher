@@ -109,7 +109,8 @@ export function CinemaHome() {
   const [shelf, setShelf] = useState<Shelf>('recent')
   const [focusId, setFocusId] = useState<number | null>(null)
   const tileRefs = useRef(new Map<number, HTMLButtonElement>())
-  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const shelfRef = useRef<HTMLDivElement>(null)
+  const scrollOnFocus = useRef(false)
 
   const list = useMemo(() => {
     if (shelf === 'favorites') return data.favorites
@@ -121,16 +122,46 @@ export function CinemaHome() {
   const index = Math.max(0, list.findIndex((game) => game.id === focusId))
   const focused = list[index] ?? data.recentlyPlayed[0] ?? data.visible[0]
 
+  // The tile lights up at once; the big art and text follow a beat later, so sweeping the mouse
+  // across the shelf does not start a fade for every cover it crosses.
+  const [shown, setShown] = useState<Game | undefined>(focused)
+  useEffect(() => {
+    if (!focused) return
+    if (!shown || shown.id === focused.id) {
+      setShown(focused)
+      return
+    }
+    const timer = setTimeout(() => setShown(focused), 90)
+    return () => clearTimeout(timer)
+  }, [focused, shown])
+
   const move = (step: number) => {
     if (list.length === 0) return
     const next = list[Math.min(list.length - 1, Math.max(0, index + step))]!
+    scrollOnFocus.current = true
     setFocusId(next.id)
   }
 
+  // Only keyboard moves scroll the shelf. With the mouse the shelf stays put under the cursor.
   useEffect(() => {
-    if (!focused) return
+    if (!focused || !scrollOnFocus.current) return
+    scrollOnFocus.current = false
     tileRefs.current.get(focused.id)?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
   }, [focused])
+
+  // The mouse wheel scrolls the shelf sideways.
+  useEffect(() => {
+    const element = shelfRef.current
+    if (!element) return
+    const onWheel = (event: WheelEvent) => {
+      const delta = Math.abs(event.deltaY) > Math.abs(event.deltaX) ? event.deltaY : event.deltaX
+      if (delta === 0) return
+      event.preventDefault()
+      element.scrollBy({ left: delta * (event.deltaMode === 1 ? 40 : 1.4), behavior: 'auto' })
+    }
+    element.addEventListener('wheel', onWheel, { passive: false })
+    return () => element.removeEventListener('wheel', onWheel)
+  })
 
   useEffect(() => {
     if (overlayOpen) return
@@ -154,10 +185,10 @@ export function CinemaHome() {
 
   return (
     <div className="relative h-full overflow-hidden">
-      <Backdrop game={focused} />
+      <Backdrop game={shown ?? focused} />
 
-      <div className="absolute left-14 top-[22%] z-10">
-        <GameInfo game={focused} />
+      <div className="absolute left-14 top-[20%] z-10">
+        <GameInfo game={shown ?? focused} />
       </div>
 
       <div className="absolute inset-x-0 bottom-0 z-10 pb-9">
@@ -183,7 +214,13 @@ export function CinemaHome() {
         {list.length === 0 ? (
           <p className="px-14 py-16 text-white/50">No favorites yet. Open a game and add it to your favorites.</p>
         ) : (
-          <div key={shelf} className="no-scrollbar flex items-end gap-4 overflow-x-auto px-14 pb-4 pt-8 motion-safe:animate-[rise-in_350ms_ease-out_both]" role="listbox" aria-label="Games">
+          <div
+            key={shelf}
+            ref={shelfRef}
+            className="no-scrollbar flex items-end gap-5 overflow-x-auto px-14 pb-4 pt-14 motion-safe:animate-[rise-in_350ms_ease-out_both]"
+            role="listbox"
+            aria-label="Games"
+          >
             {list.map((game) => {
               const active = game.id === focused.id
               return (
@@ -197,18 +234,15 @@ export function CinemaHome() {
                   role="option"
                   aria-selected={active}
                   aria-label={game.title}
-                  onMouseEnter={() => {
-                    if (hoverTimer.current) clearTimeout(hoverTimer.current)
-                    hoverTimer.current = setTimeout(() => setFocusId(game.id), 140)
-                  }}
-                  onMouseLeave={() => hoverTimer.current && clearTimeout(hoverTimer.current)}
+                  onMouseEnter={() => setFocusId(game.id)}
                   onFocus={() => setFocusId(game.id)}
-                  onClick={() => (active ? select(game.id) : setFocusId(game.id))}
+                  onClick={() => select(game.id)}
                   onDoubleClick={() => void playGame(game)}
-                  className={`relative shrink-0 origin-bottom overflow-hidden rounded-lg transition-[width,transform,box-shadow,opacity] duration-300 ease-[cubic-bezier(.2,.8,.2,1)] focus-visible:outline-none ${
+                  // Every slot keeps its width; the focused cover grows with a transform, so nothing shifts under the mouse.
+                  className={`relative w-[140px] shrink-0 origin-bottom overflow-hidden rounded-lg transition-[transform,box-shadow,opacity] duration-200 ease-[cubic-bezier(.2,.8,.2,1)] focus-visible:outline-none ${
                     active
-                      ? 'w-[176px] -translate-y-1 opacity-100 shadow-[0_0_0_3px_var(--color-accent-bright),0_18px_50px_rgba(0,0,0,0.7),0_0_40px_color-mix(in_srgb,var(--color-accent-bright)_35%,transparent)]'
-                      : 'w-[132px] opacity-75 hover:opacity-100'
+                      ? 'z-10 scale-[1.22] opacity-100 shadow-[0_0_0_3px_var(--color-accent-bright),0_18px_50px_rgba(0,0,0,0.7),0_0_40px_color-mix(in_srgb,var(--color-accent-bright)_35%,transparent)]'
+                      : 'opacity-75'
                   }`}
                 >
                   <div className="aspect-[2/3] w-full">
@@ -219,7 +253,7 @@ export function CinemaHome() {
             })}
           </div>
         )}
-        <p className="px-14 text-xs text-white/35">← → to move · Enter to play · I for details</p>
+        <p className="px-14 text-xs text-white/35">Hover or ← → to choose · wheel to scroll · click for details · Enter or double-click to play</p>
       </div>
     </div>
   )
