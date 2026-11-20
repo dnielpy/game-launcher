@@ -10,6 +10,8 @@ A local game library for Windows. It finds the games installed on your PC, shows
 - **Full screen.** Orus opens full screen; F11 or the buttons in the top bar leave it.
 - **Start over.** Deleting the profile saves a full, verified backup to Documents\\Orus backups first, then clears everything and shows the welcome screens, where the backup can be restored.
 - **Skins.** Cinema (the default: full-screen art and a shelf of covers, keyboard friendly), Orus (the original) and Mosaic (light, tiled Home).
+- **Statistics and My hardware.** Your profile opens your stats (time per day for the last week, most played games) and a 3D model of a gaming PC with your real parts: turn it, click a part to zoom in and read its specs.
+- **System requirements.** Each game shows its minimum and recommended specs in a card that turns green, yellow or red depending on how your PC compares.
 - **Minecraft.** Found in %APPDATA%\\.minecraft and started through SKlauncher (or the official launcher). Play time counts while the game runs, not while the launcher is open.
 - **Nintendo Switch games.** Turn it on under Emulated games: .nsp and .xci files show up in the library and start in your emulator (yuzu forks, Ryujinx). Covers and details come from RAWG and SteamGridDB once you add your free keys under *Settings, Covers and game details*.
 - **Your own folders.** Add any folder under *Locations*; turn any location on or off, or exclude a folder. Removing a game from the library excludes its folder so it never comes back.
