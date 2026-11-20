@@ -105,10 +105,22 @@ function Stat({ label, value }: { label: string; value: string }) {
   )
 }
 
+const MENU: { id: 'settings' | 'stats' | 'hardware'; label: string; hint: string; icon: string }[] = [
+  { id: 'settings', label: 'Settings', hint: 'Skins, locations, backups and more', icon: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z' },
+  { id: 'stats', label: 'Statistics', hint: 'Time per day and your most played games', icon: 'M4 20V10M10 20V4M16 20v-7M22 20H2' },
+  { id: 'hardware', label: 'My hardware', hint: 'Your gaming PC, part by part', icon: 'M4 5h16v11H4zM8 20h8M12 16v4M8 9h3v3H8z' }
+]
+
 function ProfileOverview({ onEdit }: { onEdit: () => void }) {
-  const { profile, games, select, openProfile } = useLauncher()
+  const { profile, games, openProfile, setView } = useLauncher()
   const stats = useMemo(() => computeProfileStats(games), [games])
-  const top = stats.ranking[0]?.playtimeSeconds ?? 1
+
+  function open(id: (typeof MENU)[number]['id']) {
+    openProfile(false)
+    if (id === 'settings') setView('settings')
+    else if (id === 'stats') useLauncher.setState({ statsOpen: true })
+    else useLauncher.setState({ hardwareOpen: true })
+  }
 
   return (
     <div className="flex flex-col gap-7 px-8 py-8">
@@ -123,47 +135,40 @@ function ProfileOverview({ onEdit }: { onEdit: () => void }) {
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
-        <Stat label="Time played" value={formatTotalHours(stats.totalSeconds)} />
-        <Stat label="Games played" value={String(stats.gamesPlayed)} />
-        <Stat label="Play sessions" value={String(stats.sessions)} />
-      </div>
-
       <section className="flex flex-col gap-3">
-        <h3 className="text-sm font-semibold">Most played games</h3>
-        {stats.ranking.length === 0 ? (
-          <p className="rounded-md bg-canvas px-4 py-6 text-center text-sm text-muted">Nothing here yet. Start a game from Orus and your hours show up here.</p>
-        ) : (
-          <ol className="flex flex-col gap-1.5">
-            {stats.ranking.map((game, index) => (
-              <li key={game.id}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    openProfile(false)
-                    select(game.id)
-                  }}
-                  className="flex w-full items-center gap-4 rounded-md bg-canvas px-3 py-2 text-left hover:bg-raised"
-                >
-                  <span className={`w-6 text-center font-display text-lg font-semibold ${index === 0 ? 'text-accent-bright' : 'text-muted'}`}>{index + 1}</span>
-                  <span className="h-12 w-8 shrink-0 overflow-hidden rounded-sm">
-                    <Cover game={game} />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-baseline justify-between gap-3">
-                      <span className="truncate text-sm">{game.title}</span>
-                      <span className="shrink-0 text-sm text-muted">{formatHoursShort(game.playtimeSeconds)}</span>
-                    </span>
-                    <span className="mt-1.5 block h-1 overflow-hidden rounded-full bg-raised">
-                      <span className="block h-full rounded-full bg-accent-bright" style={{ width: `${Math.max(3, (game.playtimeSeconds / top) * 100)}%` }} />
-                    </span>
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ol>
-        )}
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Your stats</h3>
+          <button type="button" onClick={() => open('stats')} className="text-sm font-semibold text-accent-bright underline-offset-4 hover:underline">
+            View
+          </button>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <Stat label="Time played" value={formatTotalHours(stats.totalSeconds)} />
+          <Stat label="Games played" value={String(stats.gamesPlayed)} />
+          <Stat label="Play sessions" value={String(stats.sessions)} />
+        </div>
       </section>
+
+      <ul className="flex flex-col divide-y divide-line overflow-hidden rounded-lg bg-canvas">
+        {MENU.map((item) => (
+          <li key={item.id}>
+            <button type="button" onClick={() => open(item.id)} className="group flex w-full items-center gap-4 px-4 py-3.5 text-left transition-colors hover:bg-raised">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-raised text-accent-bright group-hover:bg-surface">
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d={item.icon} />
+                </svg>
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold">{item.label}</span>
+                <span className="block text-sm text-muted">{item.hint}</span>
+              </span>
+              <svg viewBox="0 0 24 24" className="h-4 w-4 text-muted transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M9 6l6 6-6 6" />
+              </svg>
+            </button>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }
