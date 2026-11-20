@@ -112,3 +112,12 @@ export async function readRegistryValue(key: string, valueName: string): Promise
     return null
   }
 }
+
+/**
+ * Runs a PowerShell script passed as -EncodedCommand (UTF-16LE base64), so quotes, pipes and line breaks
+ * in the script survive Windows command-line quoting untouched.
+ */
+export function runPowerShell(script: string, timeoutMs = 20_000): Promise<string> {
+  const encoded = Buffer.from(script, 'utf16le').toString('base64')
+  return runCommand('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded], timeoutMs)
+}

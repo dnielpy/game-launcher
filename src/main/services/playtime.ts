@@ -2,7 +2,7 @@ import path from 'node:path'
 import type { Game } from '@shared/types'
 import type { Repository } from '../db/repository'
 import { log } from '../logger'
-import { runCommand } from '../scanner/sources/registry'
+import { runCommand, runPowerShell } from '../scanner/sources/registry'
 
 /** How often running processes are checked. */
 const POLL_INTERVAL_MS = 10_000
@@ -86,7 +86,7 @@ export function parseMinecraftProcesses(output: string): number[] {
 export async function listMinecraftProcesses(): Promise<number[]> {
   if (process.platform !== 'win32') return []
   const script = "Get-CimInstance Win32_Process | Where-Object { $_.Name -match '^javaw?\\.exe$' } | ForEach-Object { '{0}|{1}' -f $_.ProcessId, $_.CommandLine }"
-  return parseMinecraftProcesses(await runCommand('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], 20_000))
+  return parseMinecraftProcesses(await runPowerShell(script, 20_000))
 }
 
 export function isMinecraft(game: Pick<Game, 'sources'>): boolean {
