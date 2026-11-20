@@ -66,6 +66,58 @@ export interface GameMetadata {
   heroFile: string | null
   logoFile: string | null
   screenshotFiles: string[]
+  /** PC system requirements from the store. Undefined: not looked up yet (older details); null: none published. */
+  requirements?: GameRequirements | null
+}
+
+/** One line of a requirements list, such as { label: 'Memory', value: '8 GB RAM' }. */
+export interface RequirementItem {
+  label: string
+  value: string
+}
+
+export interface GameRequirements {
+  minimum: RequirementItem[] | null
+  recommended: RequirementItem[] | null
+}
+
+export interface HardwareGpu {
+  name: string
+  vramBytes: number | null
+  driver: string | null
+}
+
+export interface HardwareMemoryModule {
+  capacityBytes: number
+  speedMhz: number | null
+  manufacturer: string | null
+  partNumber: string | null
+}
+
+export interface HardwareDisk {
+  model: string
+  sizeBytes: number
+  /** SSD, HDD or null when Windows does not say. */
+  mediaType: string | null
+  /** NVMe, SATA, USB... */
+  busType: string | null
+}
+
+/** What is inside this PC, read from Windows. Missing parts are null or empty. */
+export interface HardwareInfo {
+  cpu: { name: string; cores: number | null; threads: number | null; maxClockMhz: number | null } | null
+  gpus: HardwareGpu[]
+  memory: { totalBytes: number; modules: HardwareMemoryModule[] }
+  motherboard: { manufacturer: string | null; product: string | null } | null
+  disks: HardwareDisk[]
+  os: string | null
+  collectedAt: string
+}
+
+export interface DayPlaytime {
+  /** Local date, YYYY-MM-DD. */
+  date: string
+  seconds: number
 }
 
 /** pending: not looked up yet. matched: found. not_found: nothing matched. skipped: tools are never looked up. */

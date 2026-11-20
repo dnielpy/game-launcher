@@ -14,7 +14,9 @@ import { extractIcon } from './services/icons'
 import { launchExecutable, launchGame, openGameFolder } from './services/launcher'
 import { planRelocation } from './services/relocate'
 import type { PlaytimeTracker } from './services/playtime'
+import type { HardwareService } from './services/hardware'
 import type { ProfileService } from './services/profile'
+import { dailyTotals } from '@shared/stats'
 import { romLaunchArgs, type EmulationService } from './services/emulation'
 import { gameMediaDirectory, iconsDirectory } from './services/icons'
 import type { ScanService } from './services/scanService'
@@ -31,6 +33,7 @@ export interface IpcServices {
   profile: ProfileService
   backup: BackupService
   emulation: EmulationService
+  hardware: HardwareService
   notifyLibraryChanged: () => void
 }
 
@@ -58,7 +61,7 @@ const scanModeSchema = z.enum(['auto', 'manual'])
 const externalIdSchema = z.string().regex(/^\d{1,12}$/)
 
 export function registerIpcHandlers(services: IpcServices): void {
-  const { repository, scanService, metadata, playtime, settings, updates, profile, backup, emulation, notifyLibraryChanged } = services
+  const { repository, scanService, metadata, playtime, settings, updates, profile, backup, emulation, hardware, notifyLibraryChanged } = services
 
   const settingsState = () => ({
     hasRawgKey: settings.getRawgKey() !== null,
@@ -361,6 +364,10 @@ export function registerIpcHandlers(services: IpcServices): void {
     settings.setScanMode(scanModeSchema.parse(rawMode))
     return settingsState()
   })
+
+  ipcMain.handle(IpcChannels.hardwareGet, () => hardware.get())
+  ipcMain.handle(IpcChannels.statsDaily, (_event, rawDays: unknown) => dailyTotals(repository.listSessions(), z.number().int().min(1).max(366).parse(rawDays)))
+  ipcMain.handle(IpcChannels.metadataRequirements, (_event, rawId: unknown) => metadata.requirementsFor(idSchema.parse(rawId)))
 
   ipcMain.handle(IpcChannels.appState, (event) => {
     const lastBackup = repository.getSetting('lastBackup')

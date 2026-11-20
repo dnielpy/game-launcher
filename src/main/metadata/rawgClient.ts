@@ -1,3 +1,5 @@
+import type { GameRequirements } from '@shared/types'
+import { parseRawgRequirements } from './requirements'
 import { htmlToText, RateLimitError, type FetchLike } from './steamClient'
 
 /**
@@ -29,6 +31,7 @@ export interface RawgDetails {
   metacritic: number | null
   backgroundImage: string | null
   backgroundImageAdditional: string | null
+  requirements: GameRequirements | null
 }
 
 function record(value: unknown): Record<string, unknown> | null {
@@ -83,7 +86,8 @@ export function parseRawgDetails(json: unknown): RawgDetails | null {
     ratingCount: num(data['ratings_count']),
     metacritic: num(data['metacritic']),
     backgroundImage: text(data['background_image']),
-    backgroundImageAdditional: text(data['background_image_additional'])
+    backgroundImageAdditional: text(data['background_image_additional']),
+    requirements: parseRawgRequirements(data['platforms'])
   }
 }
 

@@ -4,6 +4,8 @@ import { GameModal } from './components/GameModal'
 import { OrusMark } from './components/OrusMark'
 import { ProfileModal } from './components/ProfileModal'
 import { ScanOverlay } from './components/ScanOverlay'
+import { StatsModal } from './components/StatsModal'
+import { HardwareView } from './views/HardwareView'
 import { CinemaShell } from './shell/CinemaShell'
 import { MosaicShell } from './shell/MosaicShell'
 import { OrusShell } from './shell/OrusShell'
@@ -49,6 +51,8 @@ export function App() {
       {skin === 'cinema' ? <CinemaShell /> : skin === 'mosaic' ? <MosaicShell /> : <OrusShell />}
       <GameModal />
       <ProfileModal />
+      <StatsModal />
+      <HardwareView />
       <ScanOverlay />
       <ConfirmDialog />
       <ResetScreen />

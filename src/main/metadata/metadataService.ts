@@ -1,6 +1,6 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import type { Game, GameMetadata, MetadataCandidate, MetadataProgress, MetadataSource } from '@shared/types'
+import type { GameRequirements, Game, GameMetadata, MetadataCandidate, MetadataProgress, MetadataSource } from '@shared/types'
 import type { Repository } from '../db/repository'
 import { log } from '../logger'
 import { ACCEPT_SCORE, matchScore, searchQueries } from './matcher'
@@ -56,6 +56,29 @@ export class MetadataService {
 
   constructor(private readonly options: MetadataServiceOptions) {
     this.steam = new SteamClient((url, init) => this.throttledSteamFetch(url, init))
+  }
+
+  /**
+   * PC requirements of a game. Details saved by older versions do not have them, so they are fetched
+   * once from the same store entry and saved with the rest.
+   */
+  async requirementsFor(gameId: number): Promise<GameRequirements | null> {
+    const { repository } = this.options
+    const game = repository.getGame(gameId)
+    const metadata = game?.metadata
+    if (!game || !metadata) return null
+    if (metadata.requirements !== undefined) return metadata.requirements
+    let requirements: GameRequirements | null = null
+    try {
+      if (metadata.source === 'steam') requirements = (await this.steam.details(Number(metadata.externalId)))?.requirements ?? null
+      else if (metadata.source === 'rawg') requirements = (await this.rawg()?.details(Number(metadata.externalId)))?.requirements ?? null
+    } catch (error) {
+      log.warn(`Could not get the requirements of "${game.title}"`, error)
+      return null
+    }
+    const fresh = repository.getGame(gameId)
+    if (fresh?.metadata) repository.setMetadata(gameId, { ...fresh.metadata, requirements }, fresh.metadataStatus, fresh.manualFields.includes('match'))
+    return requirements
   }
 
   getProgress(): MetadataProgress {
@@ -223,7 +246,8 @@ export class MetadataService {
       coverFile,
       heroFile,
       logoFile,
-      screenshotFiles
+      screenshotFiles,
+      requirements: details.requirements
     }
   }
 
@@ -258,7 +282,8 @@ export class MetadataService {
       coverFile,
       heroFile,
       logoFile,
-      screenshotFiles: []
+      screenshotFiles: [],
+      requirements: details.requirements
     }
   }
 
@@ -291,7 +316,8 @@ export class MetadataService {
       coverFile,
       heroFile,
       logoFile,
-      screenshotFiles: []
+      screenshotFiles: [],
+      requirements: null
     }
   }
 

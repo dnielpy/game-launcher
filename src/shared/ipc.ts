@@ -15,6 +15,9 @@ import type {
   ScanProgress,
   ScanSummary,
   AppState,
+  DayPlaytime,
+  GameRequirements,
+  HardwareInfo,
   ScanMode,
   SettingsState,
   SkinId,
@@ -68,6 +71,9 @@ export const IpcChannels = {
   settingsSetRawgKey: 'settings:set-rawg-key',
   openExternal: 'app:open-external',
   appState: 'app:state',
+  hardwareGet: 'hardware:get',
+  statsDaily: 'stats:daily',
+  metadataRequirements: 'metadata:requirements',
   appCompleteOnboarding: 'app:complete-onboarding',
   appIsOnline: 'app:is-online',
   appResetEverything: 'app:reset-everything',
@@ -144,6 +150,8 @@ export interface LauncherApi {
   metadata: {
     /** With a game id, searches the catalogs that fit that game's platform. */
     search(query: string, gameId?: number): Promise<MetadataCandidate[]>
+    /** The game's PC requirements, fetched once for details saved by older versions. */
+    requirements(gameId: number): Promise<GameRequirements | null>
     assign(gameId: number, source: MetadataSource, externalId: string): Promise<Game>
     /** Removes the match and keeps the game without cover or info. */
     clear(gameId: number): Promise<Game>
@@ -185,6 +193,14 @@ export interface LauncherApi {
     import(): Promise<ImportSummary | null>
     /** Restores the backup Orus saved when everything was reset. */
     importLastBackup(): Promise<ImportSummary | null>
+  }
+  hardware: {
+    /** What is inside this PC. Read once per start; the first call can take a few seconds. */
+    get(): Promise<HardwareInfo>
+  }
+  stats: {
+    /** Play time per day for the last `days` days, today last. */
+    daily(days: number): Promise<DayPlaytime[]>
   }
   app: {
     state(): Promise<AppState>

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Game, GamePatch, MetadataCandidate } from '@shared/types'
 import { fileName, formatBytes, formatPlaytime, formatRelative, logoUrl, mediaUrl } from '../format'
 import { removeFromLibrary } from '../removeGame'
+import { RequirementsCard } from './RequirementsCard'
 import { errorMessage, useLauncher } from '../store'
 import { Cover, Hero } from './GameArt'
 
@@ -121,7 +122,7 @@ function AboutTab({ game }: { game: Game }) {
   const long = (description?.length ?? 0) > 700
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_260px] gap-10">
+    <div className="grid grid-cols-[minmax(0,1fr)_280px] gap-10">
       <div className="flex min-w-0 flex-col gap-6">
         {metadata?.shortDescription && <p className="text-[17px] leading-relaxed text-ink">{metadata.shortDescription}</p>}
         {description && (
@@ -155,49 +156,52 @@ function AboutTab({ game }: { game: Game }) {
         )}
       </div>
 
-      <dl className="flex flex-col gap-4 text-sm">
-        {metadata?.releaseDate && (
+      <div className="flex flex-col gap-6">
+        <dl className="flex flex-col gap-4 text-sm">
+          {metadata?.releaseDate && (
+            <div>
+              <dt className="text-muted">Release date</dt>
+              <dd>{metadata.releaseDate}</dd>
+            </div>
+          )}
+          {metadata && metadata.genres.length > 0 && (
+            <div>
+              <dt className="text-muted">Genres</dt>
+              <dd>{metadata.genres.join(', ')}</dd>
+            </div>
+          )}
+          {metadata && metadata.developers.length > 0 && (
+            <div>
+              <dt className="text-muted">Developer</dt>
+              <dd>{metadata.developers.join(', ')}</dd>
+            </div>
+          )}
+          {metadata && metadata.publishers.length > 0 && (
+            <div>
+              <dt className="text-muted">Publisher</dt>
+              <dd>{metadata.publishers.join(', ')}</dd>
+            </div>
+          )}
           <div>
-            <dt className="text-muted">Release date</dt>
-            <dd>{metadata.releaseDate}</dd>
+            <dt className="text-muted">Size on disk</dt>
+            <dd>{formatBytes(game.sizeBytes)}</dd>
           </div>
-        )}
-        {metadata && metadata.genres.length > 0 && (
           <div>
-            <dt className="text-muted">Genres</dt>
-            <dd>{metadata.genres.join(', ')}</dd>
+            <dt className="text-muted">Installed in</dt>
+            <dd className="break-all">{game.installPath}</dd>
           </div>
-        )}
-        {metadata && metadata.developers.length > 0 && (
-          <div>
-            <dt className="text-muted">Developer</dt>
-            <dd>{metadata.developers.join(', ')}</dd>
-          </div>
-        )}
-        {metadata && metadata.publishers.length > 0 && (
-          <div>
-            <dt className="text-muted">Publisher</dt>
-            <dd>{metadata.publishers.join(', ')}</dd>
-          </div>
-        )}
-        <div>
-          <dt className="text-muted">Size on disk</dt>
-          <dd>{formatBytes(game.sizeBytes)}</dd>
-        </div>
-        <div>
-          <dt className="text-muted">Installed in</dt>
-          <dd className="break-all">{game.installPath}</dd>
-        </div>
-        {metadata?.storeUrl && (
-          <button
-            type="button"
-            onClick={() => void window.api.openExternal(metadata.storeUrl!)}
-            className="self-start text-left text-xs text-muted underline-offset-4 hover:text-ink hover:underline"
-          >
-            Details and images from {SOURCE_NAMES[metadata.source]}
-          </button>
-        )}
-      </dl>
+          {metadata?.storeUrl && (
+            <button
+              type="button"
+              onClick={() => void window.api.openExternal(metadata.storeUrl!)}
+              className="self-start text-left text-xs text-muted underline-offset-4 hover:text-ink hover:underline"
+            >
+              Details and images from {SOURCE_NAMES[metadata.source]}
+            </button>
+          )}
+        </dl>
+        <RequirementsCard game={game} />
+      </div>
 
       {zoomed && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-10" onClick={() => setZoomed(null)}>

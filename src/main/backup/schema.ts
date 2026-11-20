@@ -30,7 +30,14 @@ const metadataSchema = z
     coverFile: z.string().nullable().default(null),
     heroFile: z.string().nullable().default(null),
     logoFile: z.string().nullable().default(null),
-    screenshotFiles: stringList
+    screenshotFiles: stringList,
+    requirements: z
+      .object({
+        minimum: z.array(z.object({ label: z.string(), value: z.string() })).nullable(),
+        recommended: z.array(z.object({ label: z.string(), value: z.string() })).nullable()
+      })
+      .nullable()
+      .optional()
   })
   .nullable()
 

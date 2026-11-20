@@ -51,6 +51,7 @@ const api: LauncherApi = {
   },
   metadata: {
     search: (query, gameId) => ipcRenderer.invoke(IpcChannels.metadataSearch, query, gameId),
+    requirements: (gameId) => ipcRenderer.invoke(IpcChannels.metadataRequirements, gameId),
     assign: (gameId, source, externalId) => ipcRenderer.invoke(IpcChannels.metadataAssign, gameId, source, externalId),
     clear: (gameId) => ipcRenderer.invoke(IpcChannels.metadataClear, gameId),
     refresh: (gameId) => ipcRenderer.invoke(IpcChannels.metadataRefresh, gameId),
@@ -83,6 +84,12 @@ const api: LauncherApi = {
     export: () => ipcRenderer.invoke(IpcChannels.dataExport),
     import: () => ipcRenderer.invoke(IpcChannels.dataImport),
     importLastBackup: () => ipcRenderer.invoke(IpcChannels.dataImportLastBackup)
+  },
+  hardware: {
+    get: () => ipcRenderer.invoke(IpcChannels.hardwareGet)
+  },
+  stats: {
+    daily: (days) => ipcRenderer.invoke(IpcChannels.statsDaily, days)
   },
   app: {
     state: () => ipcRenderer.invoke(IpcChannels.appState),

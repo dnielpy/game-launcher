@@ -1,3 +1,5 @@
+import type { GameRequirements } from '@shared/types'
+import { parseSteamRequirements } from './requirements'
 /**
  * Public Steam store endpoints. None of them need an API key.
  *
@@ -34,6 +36,7 @@ export interface SteamDetails {
   headerImage: string | null
   backgroundImage: string | null
   screenshots: string[]
+  requirements: GameRequirements | null
 }
 
 export interface SteamReviews {
@@ -128,7 +131,8 @@ export function parseDetails(json: unknown, appId: number): SteamDetails | null 
     backgroundImage: asString(data['background_raw']) ?? asString(data['background']),
     screenshots: asArray(data['screenshots'])
       .map((shot) => asString(asRecord(shot)?.['path_full']))
-      .filter((url): url is string => url !== null)
+      .filter((url): url is string => url !== null),
+    requirements: parseSteamRequirements(data['pc_requirements'])
   }
 }
 

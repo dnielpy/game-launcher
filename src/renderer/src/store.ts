@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { AppState, Game, LibraryRoot, MetadataProgress, PendingInstaller, ProfileState, ScanProgress, ScanSummary, SettingsState, SkinId, UpdateStatus } from '@shared/types'
+import type { AppState, Game, HardwareInfo, LibraryRoot, MetadataProgress, PendingInstaller, ProfileState, ScanProgress, ScanSummary, SettingsState, SkinId, UpdateStatus } from '@shared/types'
 
 export type View = 'home' | 'library' | 'emulators' | 'tools' | 'settings'
 export type SettingsModule = 'appearance' | 'updates' | 'locations' | 'emulation' | 'covers' | 'data' | 'about'
@@ -37,6 +37,11 @@ interface LauncherState {
   online: boolean
   /** Set while everything is being backed up and deleted. */
   resetting: 'saving' | 'restarting' | null
+  statsOpen: boolean
+  hardwareOpen: boolean
+  /** Null until loaded; loadHardware() asks for it once. */
+  hardware: HardwareInfo | null
+  loadHardware: () => Promise<HardwareInfo | null>
   confirmRequest: ConfirmRequest | null
   /** Shows a confirmation dialog; resolves true when the user agrees. */
   confirm: (request: Omit<ConfirmRequest, 'resolve'>) => Promise<boolean>
@@ -80,6 +85,18 @@ export const useLauncher = create<LauncherState>((set, get) => ({
   settings: null,
   app: null,
   resetting: null,
+  statsOpen: false,
+  hardwareOpen: false,
+  hardware: null,
+  loadHardware: async () => {
+    const current = get().hardware
+    if (current) return current
+    hardwarePromise ??= window.api.hardware.get().catch(() => null)
+    const hardware = await hardwarePromise
+    if (hardware) set({ hardware })
+    else hardwarePromise = null
+    return hardware
+  },
   online: typeof navigator === 'undefined' ? true : navigator.onLine,
   confirmRequest: null,
   confirm: (request) =>
@@ -135,6 +152,8 @@ export const useLauncher = create<LauncherState>((set, get) => ({
 }))
 
 /** The skin is a data attribute on <html>: colors, type and shapes switch in CSS, the layout in App. */
+let hardwarePromise: Promise<HardwareInfo | null> | null = null
+
 export function applySkin(skin: SkinId): void {
   document.documentElement.dataset['skin'] = skin
 }

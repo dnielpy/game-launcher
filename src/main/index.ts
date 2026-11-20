@@ -11,6 +11,7 @@ import { MetadataService } from './metadata/metadataService'
 import { gameMediaDirectory, iconsDirectory } from './services/icons'
 import { PlaytimeTracker } from './services/playtime'
 import { EmulationService } from './services/emulation'
+import { HardwareService } from './services/hardware'
 import { ProfileService } from './services/profile'
 import { ScanService } from './services/scanService'
 import { SettingsService } from './services/settings'
@@ -90,6 +91,9 @@ if (!hasLock) {
     const repository = new Repository(db)
     const settings = new SettingsService(repository)
     const emulation = new EmulationService(repository)
+    const hardware = new HardwareService(repository)
+    // Read the parts in the background so My hardware and the requirement checks are ready when opened.
+    setTimeout(() => void hardware.get(), 5000)
 
     // Many games change at once while covers download; the renderer refreshes at most a few times a second.
     let changeTimer: NodeJS.Timeout | null = null
@@ -128,7 +132,7 @@ if (!hasLock) {
     const updates = new UpdateService((status) => send(IpcChannels.updatesStatus, status))
 
     handleMediaProtocol({ icons: iconsDirectory(), games: gameMediaDirectory(), profile: profile.directory })
-    registerIpcHandlers({ repository, scanService, metadata, playtime, settings, updates, profile, backup, emulation, notifyLibraryChanged })
+    registerIpcHandlers({ repository, scanService, metadata, playtime, settings, updates, profile, backup, emulation, hardware, notifyLibraryChanged })
     updates.startSchedule()
     mainWindow = createWindow()
 
