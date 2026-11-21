@@ -199,3 +199,21 @@ body {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* Programmatic focus from a controller must remain visible in every skin. */
+:root[data-gamepad] :focus {
+  outline: 3px solid var(--color-accent-bright) !important;
+  outline-offset: 4px !important;
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-canvas) 85%, transparent);
+}
+:root[data-gamepad] label:has(> input.sr-only:focus) {
+  outline: 3px solid var(--color-accent-bright);
+  outline-offset: 4px;
+}
+.pad-key {
+  min-height: 44px;
+  border-radius: 6px;
+  padding: 8px 16px;
+  background-color: var(--color-raised);
+}
+.pad-key:hover { background-color: var(--color-line); }

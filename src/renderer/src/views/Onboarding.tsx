@@ -421,6 +421,7 @@ export function Onboarding() {
       {index > 0 && step !== 'scan' && (
         <button
           type="button"
+          data-gamepad-back
           onClick={() => setStep(STEPS[index - 1]!)}
           className="absolute left-8 top-6 z-10 flex items-center gap-2 rounded-full px-3 py-2 text-sm text-muted transition-colors hover:bg-surface hover:text-ink"
         >

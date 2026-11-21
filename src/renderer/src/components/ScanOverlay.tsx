@@ -45,7 +45,7 @@ export function ScanOverlay() {
   const detail = fetchingMetadata ? metadataProgress!.currentTitle : (progress?.currentPath ?? null)
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-canvas/85 backdrop-blur-md">
+    <div data-gamepad-scope="40" className="fixed inset-0 z-40 flex items-center justify-center bg-canvas/85 backdrop-blur-md">
       <div className="w-[560px] max-w-[90vw] rounded-xl border border-line bg-surface px-10 py-9 shadow-2xl">
         <h2 className="font-display text-3xl font-semibold">{title}</h2>
         <p className="mt-2 text-sm text-muted">
@@ -84,7 +84,7 @@ export function ScanOverlay() {
               Stop scan
             </button>
           )}
-          <button type="button" onClick={hideOverlay} className="rounded-md bg-raised px-4 py-2 text-sm hover:bg-line">
+          <button type="button" data-gamepad-back data-gamepad-autofocus onClick={hideOverlay} className="rounded-md bg-raised px-4 py-2 text-sm hover:bg-line">
             Continue in the background
           </button>
         </div>

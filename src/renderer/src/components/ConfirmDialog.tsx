@@ -21,7 +21,7 @@ export function ConfirmDialog() {
 
   if (!request) return null
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-6 backdrop-blur-[2px] motion-safe:animate-[fade-in_150ms_ease-out]" onClick={() => request.resolve(false)}>
+    <div data-gamepad-scope="60" className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-6 backdrop-blur-[2px] motion-safe:animate-[fade-in_150ms_ease-out]" onClick={() => request.resolve(false)}>
       <div
         role="alertdialog"
         aria-modal="true"
@@ -34,7 +34,7 @@ export function ConfirmDialog() {
         </h2>
         <p className="mt-2 whitespace-pre-line text-sm text-muted">{request.message}</p>
         <div className="mt-6 flex justify-end gap-3">
-          <button ref={cancelRef} type="button" onClick={() => request.resolve(false)} className="rounded-md bg-raised px-5 py-2 text-sm hover:bg-line">
+          <button data-gamepad-back data-gamepad-autofocus ref={cancelRef} type="button" onClick={() => request.resolve(false)} className="rounded-md bg-raised px-5 py-2 text-sm hover:bg-line">
             Cancel
           </button>
           <button

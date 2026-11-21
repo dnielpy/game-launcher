@@ -124,7 +124,7 @@ export function StatsModal() {
 
   if (!statsOpen) return null
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-6 backdrop-blur-sm motion-safe:animate-[fade-in_150ms_ease-out]" onClick={close}>
+    <div data-gamepad-scope="40" className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-6 backdrop-blur-sm motion-safe:animate-[fade-in_150ms_ease-out]" onClick={close}>
       <div
         role="dialog"
         aria-modal="true"
@@ -132,7 +132,7 @@ export function StatsModal() {
         onClick={(event) => event.stopPropagation()}
         className="relative max-h-[90vh] w-full max-w-[760px] overflow-y-auto rounded-xl bg-surface p-8 shadow-[0_30px_120px_rgba(0,0,0,0.6)] motion-safe:animate-[pop-in_200ms_cubic-bezier(.2,.9,.3,1.1)]"
       >
-        <button type="button" onClick={close} className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-lg hover:bg-black/70" aria-label="Close">
+        <button type="button" onClick={close} className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-lg hover:bg-black/70" data-gamepad-back aria-label="Close">
           ✕
         </button>
         <h2 className="font-display text-3xl font-semibold">Statistics</h2>

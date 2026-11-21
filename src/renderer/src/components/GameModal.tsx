@@ -204,7 +204,8 @@ function AboutTab({ game }: { game: Game }) {
       </div>
 
       {zoomed && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-10" onClick={() => setZoomed(null)}>
+        <div data-gamepad-scope="31" className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-10" onClick={() => setZoomed(null)}>
+          <button type="button" data-gamepad-back onClick={() => setZoomed(null)} className="absolute right-6 top-6 rounded-md bg-raised px-4 py-2">Close image</button>
           <img src={zoomed} alt="" className="max-h-full max-w-full rounded-md" />
         </div>
       )}
@@ -528,7 +529,7 @@ export function GameModal() {
   }
 
   return (
-    <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 p-6 backdrop-blur-sm" onClick={() => select(null)}>
+    <div data-gamepad-scope="30" className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 p-6 backdrop-blur-sm" onClick={() => select(null)}>
       <div
         ref={dialogRef}
         tabIndex={-1}
@@ -545,6 +546,7 @@ export function GameModal() {
             type="button"
             onClick={() => select(null)}
             className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-lg hover:bg-black/75"
+            data-gamepad-back
             aria-label="Close"
           >
             ✕

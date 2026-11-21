@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { GamepadNavigation } from './gamepad/GamepadNavigation'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { GameModal } from './components/GameModal'
 import { OrusMark } from './components/OrusMark'
@@ -17,7 +18,7 @@ function ResetScreen() {
   const resetting = useLauncher((state) => state.resetting)
   if (!resetting) return null
   return (
-    <div className="fixed inset-0 z-[70] flex flex-col items-center justify-center gap-6 bg-canvas motion-safe:animate-[fade-in_300ms_ease-out]">
+    <div data-gamepad-scope="70" className="fixed inset-0 z-[70] flex flex-col items-center justify-center gap-6 bg-canvas motion-safe:animate-[fade-in_300ms_ease-out]">
       <OrusMark className="h-20 w-20 animate-pulse" />
       <p className="text-lg">{resetting === 'saving' ? 'Saving and checking your backup…' : 'Starting over…'}</p>
     </div>
@@ -40,6 +41,7 @@ export function App() {
   if (!app.onboardingDone) {
     return (
       <>
+        <GamepadNavigation />
         <Onboarding />
         <ConfirmDialog />
       </>
@@ -48,6 +50,7 @@ export function App() {
 
   return (
     <>
+      <GamepadNavigation />
       {skin === 'cinema' ? <CinemaShell /> : skin === 'mosaic' ? <MosaicShell /> : <OrusShell />}
       <GameModal />
       <ProfileModal />

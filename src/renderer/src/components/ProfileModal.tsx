@@ -189,7 +189,7 @@ export function ProfileModal() {
   const showForm = editing || !profile?.created
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-6 backdrop-blur-sm" onClick={() => openProfile(false)}>
+    <div data-gamepad-scope="40" className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-6 backdrop-blur-sm" onClick={() => openProfile(false)}>
       <div
         role="dialog"
         aria-modal="true"
@@ -197,7 +197,7 @@ export function ProfileModal() {
         onClick={(event) => event.stopPropagation()}
         className="relative max-h-[90vh] w-full max-w-[640px] overflow-y-auto rounded-xl bg-surface shadow-[0_30px_120px_rgba(0,0,0,0.6)]"
       >
-        <button type="button" onClick={() => openProfile(false)} className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-lg hover:bg-black/70" aria-label="Close">
+        <button type="button" onClick={() => openProfile(false)} className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-lg hover:bg-black/70" data-gamepad-back aria-label="Close">
           ✕
         </button>
         {showForm ? <ProfileForm onDone={() => setEditing(false)} /> : <ProfileOverview onEdit={() => setEditing(true)} />}

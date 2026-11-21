@@ -166,7 +166,9 @@ export function CinemaHome() {
   useEffect(() => {
     if (overlayOpen) return
     const onKey = (event: KeyboardEvent) => {
-      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return
+      if (event.defaultPrevented || event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return
+      // Keep Enter-to-play on covers; other buttons must not also start the featured game.
+      if (event.key === 'Enter' && event.target instanceof HTMLElement && event.target.closest('button:not([role="option"]), a, summary')) return
       if (event.key === 'ArrowRight') move(1)
       else if (event.key === 'ArrowLeft') move(-1)
       else if (event.key === 'Home') move(-list.length)
@@ -232,6 +234,7 @@ export function CinemaHome() {
                   }}
                   type="button"
                   role="option"
+                  data-gamepad-autofocus={active ? true : undefined}
                   aria-selected={active}
                   aria-label={game.title}
                   onMouseEnter={() => setFocusId(game.id)}

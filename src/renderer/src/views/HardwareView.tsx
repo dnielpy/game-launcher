@@ -154,7 +154,7 @@ export function HardwareView() {
   const specs = selected ? specsFor(selected, hardware) : []
 
   return (
-    <div className="fixed inset-0 z-40 overflow-hidden bg-[radial-gradient(70%_70%_at_60%_45%,#1d1d20,#0a0a0b_75%)] motion-safe:animate-[fade-in_300ms_ease-out]">
+    <div data-gamepad-scope="40" className="fixed inset-0 z-40 overflow-hidden bg-[radial-gradient(70%_70%_at_60%_45%,#1d1d20,#0a0a0b_75%)] motion-safe:animate-[fade-in_300ms_ease-out]">
       {webgl ? (
         <canvas ref={canvasRef} className="absolute inset-0 h-full w-full cursor-grab active:cursor-grabbing" aria-label="3D model of a gaming PC. Drag to turn it, click a part to see its details." />
       ) : (
@@ -167,7 +167,7 @@ export function HardwareView() {
           <p className="mt-1 text-sm text-muted">{hardware?.cpu?.name ?? 'Reading your PC…'}</p>
         </div>
         <div className="pointer-events-auto flex items-center gap-3">
-          <button type="button" onClick={close} className="flex h-10 items-center gap-2 rounded-full bg-white/10 px-4 text-sm backdrop-blur hover:bg-white/20" aria-label="Close My hardware">
+          <button type="button" data-gamepad-back={selected ? undefined : true} onClick={close} className="flex h-10 items-center gap-2 rounded-full bg-white/10 px-4 text-sm backdrop-blur hover:bg-white/20" aria-label="Close My hardware">
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden>
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>
@@ -186,7 +186,7 @@ export function HardwareView() {
           <div key={selected} className="flex max-h-full flex-col gap-4 overflow-y-auto rounded-2xl border border-white/10 bg-black/55 p-6 backdrop-blur-xl motion-safe:animate-[rise-in_400ms_cubic-bezier(.2,.8,.2,1)_both]">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-[0.2em] text-accent-bright">{PART_NAMES[selected]}</span>
-              <button type="button" onClick={() => setSelected(null)} className="text-sm text-muted hover:text-ink">
+              <button type="button" data-gamepad-back onClick={() => setSelected(null)} className="text-sm text-muted hover:text-ink">
                 Back
               </button>
             </div>
