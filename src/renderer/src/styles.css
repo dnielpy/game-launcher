@@ -206,6 +206,13 @@ body {
   outline-offset: 4px !important;
   box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-canvas) 85%, transparent);
 }
+:root[data-gamepad] .game-tile:focus {
+  outline: none !important;
+  box-shadow: none;
+}
+:root[data-gamepad] .game-tile:focus > .game-tile-cover {
+  box-shadow: 0 0 0 3px var(--color-accent-bright);
+}
 :root[data-gamepad] label:has(> input.sr-only:focus) {
   outline: 3px solid var(--color-accent-bright);
   outline-offset: 4px;

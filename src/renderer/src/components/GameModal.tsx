@@ -84,6 +84,7 @@ function PlayButton({ game }: { game: Game }) {
   return (
     <button
       type="button"
+      data-gamepad-autofocus
       disabled={!canPlay || starting}
       onClick={() => void play()}
       className="flex items-center gap-2 rounded-md bg-accent px-9 py-3 font-semibold text-white enabled:hover:bg-accent-bright enabled:hover:text-black disabled:opacity-50"

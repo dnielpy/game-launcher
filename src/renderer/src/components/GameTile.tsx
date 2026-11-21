@@ -11,9 +11,9 @@ export function GameTile({ game, showPlaytime = false }: { game: Game; showPlayt
   const notInstalled = game.status !== 'installed'
 
   return (
-    <button type="button" onClick={() => select(game.id)} className="group flex w-full flex-col text-left" title={game.title}>
+    <button type="button" onClick={() => select(game.id)} className="game-tile group flex w-full flex-col text-left" title={game.title}>
       <div
-        className="relative aspect-[2/3] w-full overflow-hidden rounded-md ring-accent-bright transition-[box-shadow,transform] duration-150 group-hover:scale-[1.03] group-hover:ring-2 group-focus-visible:ring-2"
+        className="game-tile-cover relative aspect-[2/3] w-full overflow-hidden rounded-md ring-accent-bright transition-[box-shadow,transform] duration-150 group-hover:scale-[1.03] group-hover:ring-2 group-focus-visible:ring-2"
       >
         <Cover game={game} />
         {running && <span className="absolute left-2 top-2 rounded-sm bg-accent-bright px-1.5 py-0.5 text-[11px] font-semibold text-black">Playing</span>}
