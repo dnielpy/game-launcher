@@ -23,8 +23,23 @@ describe('dailyTotals', () => {
     const now = new Date(2026, 10, 19, 12, 0)
     const result = dailyTotals([{ startedAt: iso(2026, 11, 18, 23), endedAt: iso(2026, 11, 19, 1), seconds: 7200 }], 2, now)
     expect(result).toEqual([
-      { date: '2026-11-18', seconds: 3600 },
-      { date: '2026-11-19', seconds: 3600 }
+      { date: '2026-11-18', seconds: 3600, topGameId: null },
+      { date: '2026-11-19', seconds: 3600, topGameId: null }
     ])
+  })
+
+  it('names the game played the longest each day', () => {
+    const now = new Date(2026, 10, 19, 22, 0)
+    const result = dailyTotals(
+      [
+        { gameId: 1, startedAt: iso(2026, 11, 19, 10), endedAt: iso(2026, 11, 19, 10, 30), seconds: 1800 },
+        { gameId: 2, startedAt: iso(2026, 11, 19, 12), endedAt: iso(2026, 11, 19, 13), seconds: 3600 },
+        { gameId: 1, startedAt: iso(2026, 11, 19, 18), endedAt: iso(2026, 11, 19, 18, 20), seconds: 1200 },
+        { gameId: 3, startedAt: iso(2026, 11, 18, 23), endedAt: iso(2026, 11, 19, 0, 10), seconds: 4200 }
+      ],
+      3,
+      now
+    )
+    expect(result.map((day) => day.topGameId)).toEqual([null, 3, 2])
   })
 })

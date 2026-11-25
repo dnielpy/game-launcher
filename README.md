@@ -62,9 +62,9 @@ The green/purple outline shows the current focus. Mouse and keyboard remain avai
 
 Controllers must be exposed by Chromium's [Gamepad API with the standard mapping](https://developer.mozilla.org/en-US/docs/Web/API/Gamepad_API/Using_the_Gamepad_API). For a generic controller with an unknown layout, Orus shows a message instead of guessing which button confirms an action: use its Xbox/XInput mode or a compatible system mapping. Windows file/folder pickers and other system dialogs still use their own input support; the in-app keyboard covers Orus text fields. The 3D hardware model's rotation/zoom gestures still use the mouse; its part buttons and specifications are navigable with the controller.
 
-## Publishing 1.3.1
+## Publishing a release
 
-The version is already set to `1.3.1` in `package.json` and `package-lock.json`. Before publishing, run:
+The version is already set to `1.4.0` in `package.json` and `package-lock.json`. Before publishing, run:
 
 ```bash
 cd /Users/macbook/Documents/game-launcher
@@ -73,24 +73,24 @@ npm test
 npm run build
 ```
 
-On a Windows 10/11 PC, run `npm run dev` with a real controller. Check all three skins, a library larger than one screen, launching and returning from a game, search with the on-screen keyboard, dropdowns, profile/statistics/hardware windows, screenshot close, cancelling a destructive confirmation, onboarding, disconnect/reconnect and switching to another app. Also check keyboard and mouse navigation. `npm run dist` creates `dist/Orus-Setup-1.3.1.exe` for a local installer/upgrade test.
+On a Windows 10/11 PC, run `npm run dev` with a real controller. Check all three skins, a library larger than one screen, launching and returning from a game, search with the on-screen keyboard, dropdowns, profile/statistics/hardware windows, screenshot close, cancelling a destructive confirmation, onboarding, disconnect/reconnect and switching to another app. Also check keyboard and mouse navigation. `npm run dist` creates `dist/Orus-Setup-1.4.0.exe` for a local installer/upgrade test.
 
 Review the changes, then commit and push them to `main`:
 
 ```bash
 git add README.md package.json package-lock.json src/renderer/src src/shared/gamepad.ts tests/gamepad.test.ts
-git commit -m "feat: add controller navigation for Orus 1.3.1"
+git commit -m "feat: show the most played game above each weekly bar"
 git push origin main
 ```
 
 Open [Build Windows installer](https://github.com/dnielpy/game-launcher/actions), wait for the `main` build to pass, and download the `orus-windows` artifact. Test that installer on Windows over the previous version and verify that your library/profile remain available. When ready to publish that tested commit:
 
 ```bash
-git tag -a v1.3.1 -m "Orus 1.3.1: controller navigation"
-git push origin v1.3.1
+git tag -a v1.4.0 -m "Orus 1.4.0: game badges on the weekly playtime chart"
+git push origin v1.4.0
 ```
 
-The tag **must match** the package version. The tag workflow builds on Windows and publishes a [GitHub Release](https://github.com/dnielpy/game-launcher/releases) with `Orus-Setup-1.3.1.exe`. Confirm the release is published (not draft/prerelease), with the installer attached, and edit its notes to describe controller navigation. A push to `main` alone only creates a build artifact; it does not publish an update.
+The tag **must match** the package version. The tag workflow builds on Windows and publishes a [GitHub Release](https://github.com/dnielpy/game-launcher/releases) with `Orus-Setup-1.4.0.exe`. Confirm the release is published (not draft/prerelease), with the installer attached, and edit its notes to describe the release. A push to `main` alone only creates a build artifact; it does not publish an update.
 
 Existing installations check GitHub shortly after startup and every six hours. Users can also open **Settings → Updates → Check for updates → Download and install → Restart and install**. The updater discovers the new `.exe` from the GitHub release; no separate update manifest is needed. Keep `appId: com.dnielpy.gamelauncher` unchanged so the installer upgrades the same application.
 

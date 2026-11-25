@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import type { DayPlaytime, Game } from '@shared/types'
 import { computeProfileStats, formatTotalHours } from '@shared/profileStats'
-import { formatHoursShort } from '../format'
+import { coverUrl, formatHoursShort, iconUrl, titleHue } from '../format'
 import { useLauncher } from '../store'
 import { Cover } from './GameArt'
 
@@ -19,8 +19,37 @@ function niceStep(maxHours: number): number {
   return 24
 }
 
-/** Seven bars, one per day; hover or focus a bar for its exact time. Single series: no legend, the title names it. */
-function DailyChart({ days }: { days: DayPlaytime[] }) {
+/** Round badge for a day's most played game: the executable's icon, else the cover, else its initial. */
+function GameBadge({ game, style }: { game: Game; style: CSSProperties }) {
+  const icon = iconUrl(game.iconPath)
+  const cover = coverUrl(game)
+  const [failed, setFailed] = useState<string[]>([])
+  const url = [icon, cover].find((candidate) => candidate !== null && !failed.includes(candidate)) ?? null
+  const hue = titleHue(game.title)
+  return (
+    <span
+      aria-hidden
+      className="pointer-events-none absolute left-1/2 flex h-7 w-7 -translate-x-1/2 items-center justify-center overflow-hidden rounded-full bg-raised ring-2 ring-canvas transition-[bottom] duration-700 ease-[cubic-bezier(.2,.8,.2,1)]"
+      style={url ? style : { ...style, background: `hsl(${hue} 38% 30%)` }}
+    >
+      {url ? (
+        <img
+          src={url}
+          alt=""
+          draggable={false}
+          onError={() => setFailed((list) => [...list, url])}
+          className={`h-full w-full ${url === icon ? 'object-contain p-1' : 'object-cover'}`}
+        />
+      ) : (
+        <span className="font-display text-xs font-semibold text-white/90">{game.title.charAt(0).toUpperCase()}</span>
+      )}
+    </span>
+  )
+}
+
+/** Seven bars, one per day, each topped by the day's most played game; hover or focus a bar for its exact time. Single series: no legend, the title names it. */
+function DailyChart({ days, games }: { days: DayPlaytime[]; games: Game[] }) {
+  const gamesById = useMemo(() => new Map(games.map((game) => [game.id, game])), [games])
   const [active, setActive] = useState<number | null>(null)
   const maxHours = Math.max(...days.map((day) => day.seconds / 3600), 0.5)
   const step = niceStep(maxHours)
@@ -34,9 +63,9 @@ function DailyChart({ days }: { days: DayPlaytime[] }) {
         <span className="text-sm font-semibold">Time played, last 7 days</span>
         <span className="text-sm text-muted">{formatTotalHours(total)} this week</span>
       </figcaption>
-      <div className="relative flex h-56 gap-3 pl-10">
+      <div className="relative flex h-64 gap-3 pl-10 pt-9">
         {/* Recessive grid and y labels. */}
-        <div className="pointer-events-none absolute inset-0 bottom-7" aria-hidden>
+        <div className="pointer-events-none absolute inset-x-0 bottom-7 top-9" aria-hidden>
           {lines.map((hours) => (
             <div key={hours} className="absolute inset-x-0 flex items-center gap-2" style={{ bottom: `${(hours / top) * 100}%` }}>
               <span className="w-8 translate-y-1/2 text-right text-[11px] tabular-nums text-muted">{hours === 0 ? '0' : `${hours}h`}</span>
@@ -48,6 +77,7 @@ function DailyChart({ days }: { days: DayPlaytime[] }) {
           const label = dayLabel(day.date, index, days.length)
           const height = (day.seconds / 3600 / top) * 100
           const isActive = active === index
+          const game = day.topGameId === null ? undefined : gamesById.get(day.topGameId)
           return (
             <div key={day.date} className="relative flex flex-1 flex-col items-center">
               <button
@@ -56,16 +86,18 @@ function DailyChart({ days }: { days: DayPlaytime[] }) {
                 onMouseLeave={() => setActive(null)}
                 onFocus={() => setActive(index)}
                 onBlur={() => setActive(null)}
-                aria-label={`${label.long}: ${day.seconds > 0 ? formatHoursShort(day.seconds) : 'not played'}`}
+                aria-label={`${label.long}: ${day.seconds > 0 ? formatHoursShort(day.seconds) : 'not played'}${game ? `, mostly ${game.title}` : ''}`}
                 className="relative flex w-full flex-1 items-end justify-center focus-visible:outline-none"
               >
                 <span
                   className={`block w-full max-w-11 rounded-t-[4px] transition-[height,opacity] duration-700 ease-[cubic-bezier(.2,.8,.2,1)] ${day.seconds > 0 ? 'bg-accent-bright' : ''} ${active !== null && !isActive ? 'opacity-50' : ''}`}
                   style={{ height: `${Math.max(day.seconds > 0 ? 1.5 : 0, height)}%` }}
                 />
+                {game && <GameBadge key={game.id} game={game} style={{ bottom: `calc(${height}% + 6px)` }} />}
                 {isActive && (
-                  <span className="absolute bottom-full z-10 mb-2 whitespace-nowrap rounded-md bg-ink px-2.5 py-1.5 text-xs text-canvas shadow-lg" style={{ bottom: `${height}%` }}>
+                  <span className="absolute z-10 mb-2 whitespace-nowrap rounded-md bg-ink px-2.5 py-1.5 text-xs text-canvas shadow-lg" style={{ bottom: game ? `calc(${height}% + 36px)` : `${height}%` }}>
                     <span className="font-semibold">{day.seconds > 0 ? formatHoursShort(day.seconds) : 'Not played'}</span>
+                    {game && <span className="block text-[11px] opacity-70">{game.title}</span>}
                     <span className="block text-[11px] opacity-70">{label.long}</span>
                   </span>
                 )}
@@ -152,7 +184,7 @@ export function StatsModal() {
           </div>
         </div>
 
-        <div className="mt-8 rounded-lg bg-canvas px-5 py-5">{days ? <DailyChart days={days} /> : <div className="h-64" />}</div>
+        <div className="mt-8 rounded-lg bg-canvas px-5 py-5">{days ? <DailyChart days={days} games={games} /> : <div className="h-72" />}</div>
 
         <section className="mt-8 flex flex-col gap-3">
           <h3 className="text-sm font-semibold">Most played games</h3>

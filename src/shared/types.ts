@@ -118,6 +118,8 @@ export interface DayPlaytime {
   /** Local date, YYYY-MM-DD. */
   date: string
   seconds: number
+  /** The game played the longest that day, or null when nothing was played. */
+  topGameId: number | null
 }
 
 /** pending: not looked up yet. matched: found. not_found: nothing matched. skipped: tools are never looked up. */
