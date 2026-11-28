@@ -19,12 +19,16 @@ function niceStep(maxHours: number): number {
   return 24
 }
 
-/** Round badge for a day's most played game: the executable's icon, else the cover, else its initial. */
+/**
+ * Round badge for a day's most played game: its cover, else the executable's icon, else its initial.
+ * The cover goes first because many executables have no icon of their own, and Windows then hands
+ * back its generic blank program icon, which is not an empty image and so cannot be told apart.
+ */
 function GameBadge({ game, style }: { game: Game; style: CSSProperties }) {
-  const icon = iconUrl(game.iconPath)
   const cover = coverUrl(game)
+  const icon = iconUrl(game.iconPath)
   const [failed, setFailed] = useState<string[]>([])
-  const url = [icon, cover].find((candidate) => candidate !== null && !failed.includes(candidate)) ?? null
+  const url = [cover, icon].find((candidate) => candidate !== null && !failed.includes(candidate)) ?? null
   const hue = titleHue(game.title)
   return (
     <span
