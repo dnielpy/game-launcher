@@ -3,7 +3,7 @@ import path from 'node:path'
 import { afterAll, beforeAll } from 'vitest'
 import { epicEntryFromManifest, readEpicLibrary } from '../src/main/scanner/sources/epic'
 import { parseRegQueryOutput, toRegistryEntries } from '../src/main/scanner/sources/registry'
-import { libraryPathsFromVdf, parseAppManifest, readSteamLibrary } from '../src/main/scanner/sources/steam'
+import { findSteamAppId, libraryPathsFromVdf, parseAppManifest, readSteamLibrary, steamLaunchUri } from '../src/main/scanner/sources/steam'
 import { createTree, tempDir } from './fixtures'
 
 const REG_OUTPUT = `
@@ -84,6 +84,31 @@ describe('steam', () => {
         launch: { type: 'uri', uri: 'steam://rungameid/620' }
       })
     })
+
+    it('finds the app id of a game from its folder or exe, ignoring case', async () => {
+      const gameDir = path.join(dir.path, 'steamapps', 'common', 'Portal 2')
+      expect(await findSteamAppId(gameDir)).toBe('620')
+      expect(await findSteamAppId(path.join(dir.path, 'STEAMAPPS', 'common', 'portal 2'), path.join(gameDir, 'bin', 'portal2.exe'))).toBe('620')
+    })
+  })
+
+  describe('steam_appid.txt', () => {
+    let dir: { path: string; cleanup: () => void }
+    beforeAll(() => {
+      dir = tempDir()
+      createTree(dir.path, { Game: { 'steam_appid.txt': '570\n', bin: { 'game.exe': 10 } }, Other: { 'other.exe': 10 } })
+    })
+    afterAll(() => dir.cleanup())
+
+    it('reads the app id next to the exe or in the game folder', async () => {
+      expect(await findSteamAppId(path.join(dir.path, 'Game'), path.join(dir.path, 'Game', 'bin', 'game.exe'))).toBe('570')
+      expect(await findSteamAppId(path.join(dir.path, 'Other'), path.join(dir.path, 'Other', 'other.exe'))).toBeNull()
+    })
+  })
+
+  it('builds the steam address, with launch options when given', () => {
+    expect(steamLaunchUri('570')).toBe('steam://rungameid/570')
+    expect(steamLaunchUri('570', ' -novid -high ')).toBe('steam://run/570//-novid%20-high/')
   })
 })
 

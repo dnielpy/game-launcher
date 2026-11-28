@@ -93,3 +93,55 @@ export async function readSteamLibrary(steamRoot?: string): Promise<LauncherEntr
   }
   return entries
 }
+
+const STEAM_COMMON = /[\\/]steamapps[\\/]common[\\/]([^\\/]+)/i
+
+/**
+ * The Steam app id of a game installed by Steam, found from its folder or executable.
+ * Games such as Dota 2 lose their Steam connection when their exe is started directly,
+ * so they have to go through Steam. Looks for:
+ * 1. a path under <library>\\steamapps\\common\\<installdir>, matched against the library's appmanifest files;
+ * 2. a steam_appid.txt next to the executable or in the game folder.
+ */
+export async function findSteamAppId(installPath: string, exePath?: string): Promise<string | null> {
+  for (const target of [exePath, installPath]) {
+    if (!target) continue
+    const match = STEAM_COMMON.exec(target)
+    if (!match) continue
+    const steamappsDir = target.slice(0, match.index + '/steamapps'.length)
+    const installDir = (match[1] ?? '').toLowerCase()
+    let files: string[]
+    try {
+      files = (await readDirSafe(steamappsDir)).filter((entry) => entry.isFile()).map((entry) => entry.name)
+    } catch {
+      continue
+    }
+    for (const file of files) {
+      if (!/^appmanifest_\d+\.acf$/i.test(file)) continue
+      try {
+        const manifest = parseAppManifest(await withTimeout(fs.readFile(path.join(steamappsDir, file), 'utf8'), file))
+        if (manifest && manifest.installDir.toLowerCase() === installDir) return manifest.appId
+      } catch {
+        continue
+      }
+    }
+  }
+
+  const appIdFiles = [exePath ? path.join(path.dirname(exePath), 'steam_appid.txt') : null, path.join(installPath, 'steam_appid.txt')]
+  for (const file of appIdFiles) {
+    if (!file) continue
+    try {
+      const content = (await withTimeout(fs.readFile(file, 'utf8'), file)).trim()
+      if (/^\d+$/.test(content)) return content
+    } catch {
+      continue
+    }
+  }
+  return null
+}
+
+/** The steam:// address that starts a game through Steam, with its launch options when there are any. */
+export function steamLaunchUri(appId: string, args = ''): string {
+  const trimmed = args.trim()
+  return trimmed.length > 0 ? `steam://run/${appId}//${encodeURIComponent(trimmed)}/` : `steam://rungameid/${appId}`
+}
