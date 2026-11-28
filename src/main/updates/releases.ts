@@ -101,3 +101,47 @@ export class SpeedMeter {
     return seconds > 0 ? Math.max(0, (last.bytes - first.bytes) / seconds) : 0
   }
 }
+
+/** What a partly downloaded installer was, saved next to it so a later run can resume it. */
+export interface PartialDownload {
+  version: string
+  name: string
+  size: number
+  digest: string | null
+}
+
+export function partialFor(release: ReleaseInfo): PartialDownload | null {
+  if (!release.asset) return null
+  return { version: release.version, name: release.asset.name, size: release.asset.size, digest: release.asset.digest }
+}
+
+export function parsePartial(json: unknown): PartialDownload | null {
+  const value = record(json)
+  const version = text(value?.['version'])
+  const name = text(value?.['name'])
+  const size = value?.['size']
+  if (!value || !version || !name || typeof size !== 'number') return null
+  return { version, name, size, digest: text(value['digest']) }
+}
+
+/**
+ * A partial download can only be continued when it is the very same installer as the
+ * release on offer. When a newer version came out it no longer is, and it is thrown away.
+ */
+export function canResume(partial: PartialDownload | null, release: ReleaseInfo | null): boolean {
+  const wanted = release ? partialFor(release) : null
+  if (!partial || !wanted) return false
+  return (
+    compareVersions(partial.version, wanted.version) === 0 &&
+    partial.name === wanted.name &&
+    partial.size === wanted.size &&
+    (partial.digest ?? null) === (wanted.digest ?? null)
+  )
+}
+
+/** "bytes 100-199/200" -> { start: 100, total: 200 }. Null when the header is missing or malformed. */
+export function parseContentRange(header: string | null): { start: number; total: number | null } | null {
+  const match = header ? /^bytes\s+(\d+)-(\d+)\/(\d+|\*)$/i.exec(header.trim()) : null
+  if (!match) return null
+  return { start: Number(match[1]), total: match[3] === '*' ? null : Number(match[3]) }
+}

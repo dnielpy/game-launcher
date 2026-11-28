@@ -4,7 +4,7 @@ import { useLauncher } from '../store'
 export function ScanStatus() {
   const { scanning, progress, metadataProgress, overlayVisible, update, openSettings } = useLauncher()
   const fetching = metadataProgress?.running === true
-  const updateReady = update?.state === 'available' || update?.state === 'downloaded'
+  const updateReady = update?.state === 'available' || update?.state === 'paused' || update?.state === 'downloaded'
 
   const updateButton = updateReady ? (
     <button type="button" onClick={() => openSettings('updates')} className="rounded-md bg-accent/20 px-3 py-1.5 text-sm text-accent-bright hover:bg-accent/30">

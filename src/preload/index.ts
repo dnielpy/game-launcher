@@ -69,6 +69,7 @@ const api: LauncherApi = {
     get: () => ipcRenderer.invoke(IpcChannels.updatesGet),
     check: () => ipcRenderer.invoke(IpcChannels.updatesCheck),
     download: () => ipcRenderer.invoke(IpcChannels.updatesDownload),
+    pause: () => ipcRenderer.invoke(IpcChannels.updatesPause),
     cancel: () => ipcRenderer.invoke(IpcChannels.updatesCancel),
     install: () => ipcRenderer.invoke(IpcChannels.updatesInstall),
     onStatus: (listener) => subscribe(IpcChannels.updatesStatus, listener)

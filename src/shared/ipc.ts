@@ -86,6 +86,7 @@ export const IpcChannels = {
   updatesGet: 'updates:get',
   updatesCheck: 'updates:check',
   updatesDownload: 'updates:download',
+  updatesPause: 'updates:pause',
   updatesCancel: 'updates:cancel',
   updatesInstall: 'updates:install',
   updatesStatus: 'updates:status'
@@ -169,8 +170,10 @@ export interface LauncherApi {
   updates: {
     get(): Promise<UpdateStatus>
     check(): Promise<UpdateStatus>
-    /** Starts the download. Progress arrives through onStatus. */
+    /** Starts the download, or resumes a paused one. Progress arrives through onStatus. */
     download(): Promise<void>
+    /** Stops the download and keeps what was received. */
+    pause(): Promise<void>
     cancel(): Promise<void>
     /** Closes Orus and runs the downloaded installer. */
     install(): Promise<void>

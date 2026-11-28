@@ -254,7 +254,7 @@ export interface GamePatch {
   category?: GameCategory
 }
 
-export type UpdateState = 'idle' | 'checking' | 'up-to-date' | 'available' | 'downloading' | 'downloaded' | 'installing' | 'error'
+export type UpdateState = 'idle' | 'checking' | 'up-to-date' | 'available' | 'downloading' | 'paused' | 'downloaded' | 'installing' | 'error'
 
 export interface UpdateStatus {
   state: UpdateState

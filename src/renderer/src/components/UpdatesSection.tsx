@@ -47,9 +47,9 @@ export function UpdatesSection() {
         )}
       </div>
 
-      {status?.state === 'error' && status.error && <p className="rounded-md bg-danger/10 px-4 py-3 text-sm">{status.error}</p>}
+      {(status?.state === 'error' || status?.state === 'paused') && status.error && <p className="rounded-md bg-danger/10 px-4 py-3 text-sm">{status.error}</p>}
 
-      {status?.latest && ['available', 'downloading', 'downloaded', 'installing'].includes(status.state) && (
+      {status?.latest && ['available', 'downloading', 'paused', 'downloaded', 'installing'].includes(status.state) && (
         <div className="flex flex-col gap-4 rounded-md bg-canvas px-5 py-4">
           <div className="flex items-baseline justify-between gap-4">
             <div>
@@ -64,6 +64,11 @@ export function UpdatesSection() {
                 Download and install
               </button>
             )}
+            {status.state === 'paused' && (
+              <button type="button" onClick={() => void run(() => window.api.updates.download())} className={primary}>
+                Resume download
+              </button>
+            )}
             {status.state === 'downloaded' && (
               <button type="button" onClick={() => void run(() => window.api.updates.install())} className={primary}>
                 Restart and install
@@ -71,13 +76,13 @@ export function UpdatesSection() {
             )}
           </div>
 
-          {status.state === 'downloading' && status.download && (
+          {(status.state === 'downloading' || status.state === 'paused') && status.download && (
             <div className="flex flex-col gap-2">
               <div className="flex items-baseline justify-between text-sm">
                 <span className="tabular-nums">
                   {formatBytes(status.download.receivedBytes)} of {formatBytes(status.download.totalBytes)}
                 </span>
-                <span className="tabular-nums text-accent-bright">{formatSpeed(status.download.bytesPerSecond)}</span>
+                <span className="tabular-nums text-accent-bright">{status.state === 'paused' ? 'Paused' : formatSpeed(status.download.bytesPerSecond)}</span>
               </div>
               <div
                 className="h-2 w-full overflow-hidden rounded-full bg-raised"
@@ -93,11 +98,19 @@ export function UpdatesSection() {
               </div>
               <div className="flex items-baseline justify-between text-xs text-muted">
                 <span className="tabular-nums">
-                  {Math.floor((status.download.receivedBytes / Math.max(1, status.download.totalBytes)) * 100)}%{timeLeft(status.download) ? `, ${timeLeft(status.download)}` : ''}
+                  {Math.floor((status.download.receivedBytes / Math.max(1, status.download.totalBytes)) * 100)}%
+                  {status.state === 'downloading' && timeLeft(status.download) ? `, ${timeLeft(status.download)}` : ''}
                 </span>
-                <button type="button" onClick={() => void run(() => window.api.updates.cancel())} className="hover:text-ink">
-                  Cancel
-                </button>
+                <span className="flex gap-4">
+                  {status.state === 'downloading' && (
+                    <button type="button" onClick={() => void run(() => window.api.updates.pause())} className="hover:text-ink">
+                      Pause
+                    </button>
+                  )}
+                  <button type="button" onClick={() => void run(() => window.api.updates.cancel())} className="hover:text-ink">
+                    Cancel
+                  </button>
+                </span>
               </div>
             </div>
           )}
