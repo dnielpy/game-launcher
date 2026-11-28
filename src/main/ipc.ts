@@ -82,6 +82,7 @@ export function registerIpcHandlers(services: IpcServices): void {
   ipcMain.handle(IpcChannels.updatesDownload, () => {
     void updates.download()
   })
+  ipcMain.handle(IpcChannels.updatesPause, () => updates.pause())
   ipcMain.handle(IpcChannels.updatesCancel, () => updates.cancel())
   ipcMain.handle(IpcChannels.updatesInstall, () => updates.install())
 
