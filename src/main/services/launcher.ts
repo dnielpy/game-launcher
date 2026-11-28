@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process'
 import path from 'node:path'
 import type { Game } from '@shared/types'
 import { log } from '../logger'
+import { findSteamAppId, steamLaunchUri } from '../scanner/sources/steam'
 
 /** Splits a command-line argument string, keeping quoted parts together. */
 export function splitArgs(args: string): string[] {
@@ -24,6 +25,15 @@ export async function launchGame(game: Game): Promise<void> {
   if (launch.type === 'rom') throw new Error('Console games start through their emulator')
 
   const kind = launchKind(launch.exePath)
+  if (kind === 'exe') {
+    // Steam games started from their exe lose their Steam connection (Dota 2, for example): let Steam start them.
+    const appId = await findSteamAppId(game.installPath, launch.exePath).catch(() => null)
+    if (appId) {
+      log.info(`Launching ${game.title} through Steam (app ${appId})`)
+      await shell.openExternal(steamLaunchUri(appId, launch.args))
+      return
+    }
+  }
   if (kind === 'script') {
     await spawnDetached('cmd.exe', ['/d', '/s', '/c', `"${batchCommand(launch.exePath, launch.args)}"`], launch.workingDir, true)
     return
